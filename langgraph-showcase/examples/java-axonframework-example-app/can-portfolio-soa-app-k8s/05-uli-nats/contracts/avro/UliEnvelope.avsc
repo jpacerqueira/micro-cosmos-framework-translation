@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "UliEnvelope",
+  "namespace": "com.customer.can.uli",
+  "doc": "Universal Layer of Interoperability message envelope.",
+  "fields": [
+    { "name": "messageId",     "type": "string" },
+    { "name": "correlationId", "type": "string" },
+    { "name": "causationId",   "type": ["null", "string"], "default": null },
+    { "name": "subject",       "type": "string" },
+    { "name": "type",          "type": "string" },
+    { "name": "source",        "type": "string" },
+    { "name": "timestamp",     "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "headers",       "type": { "type": "map", "values": "string" }, "default": {} },
+    { "name": "payloadJson",   "type": "string", "doc": "Stringified JSON payload - kept as string so a single Avro schema covers all event types." }
+  ]
+}

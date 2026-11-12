@@ -1,0 +1,15 @@
+config {
+  type: "table",
+  schema: "marts",
+  name: "daily_revenue",
+  description: "Daily revenue by channel.",
+  dependencies: ["stg_orders"]
+}
+
+SELECT
+  order_date,
+  channel,
+  COUNT(order_id) AS order_count,
+  SUM(amount) AS revenue
+FROM ${ref("stg_orders")}
+GROUP BY order_date, channel

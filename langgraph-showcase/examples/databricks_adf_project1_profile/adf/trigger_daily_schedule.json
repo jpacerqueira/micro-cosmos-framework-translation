@@ -1,0 +1,29 @@
+{
+    "name": "DailyETLTrigger",
+    "properties": {
+        "type": "ScheduleTrigger",
+        "typeProperties": {
+            "recurrence": {
+                "frequency": "Day",
+                "interval": 1,
+                "timeZone": "UTC",
+                "schedule": {
+                    "hours": [2],
+                    "minutes": [0]
+                }
+            }
+        },
+        "pipelines": [
+            {
+                "pipelineReference": {
+                    "referenceName": "MainETLPipeline",
+                    "type": "PipelineReference"
+                },
+                "parameters": {
+                    "season_code": "AW24",
+                    "output_mode": "overwrite"
+                }
+            }
+        ]
+    }
+}

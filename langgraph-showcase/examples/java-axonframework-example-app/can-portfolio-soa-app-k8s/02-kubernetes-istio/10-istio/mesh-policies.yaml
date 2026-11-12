@@ -1,0 +1,47 @@
+###############################################################################
+# Mesh-wide policy: mTLS STRICT, default-deny authorization, allow only
+# explicitly permitted service-to-service traffic via per-service AuthZ.
+###############################################################################
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT
+---
+# Default-deny in each app namespace - services must opt-in to traffic.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny
+  namespace: can-app
+spec:
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny
+  namespace: can-system
+spec:
+  {}
+---
+# Telemetry: send traces to OTel and access logs as JSON.
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: mesh-default
+  namespace: istio-system
+spec:
+  accessLogging:
+    - providers:
+        - name: envoy
+  tracing:
+    - providers:
+        - name: otel
+      randomSamplingPercentage: 10.0
+  metrics:
+    - providers:
+        - name: prometheus

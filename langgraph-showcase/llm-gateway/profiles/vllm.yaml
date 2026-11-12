@@ -1,0 +1,26 @@
+# DORMANT until LLM_PROFILE=vllm. OpenAI-compat vLLM (local or Cloud Run).
+# Alias gemma4:latest → VLLM_LITELLM_MODEL. No extra_body (strict schema).
+
+model_list:
+  - model_name: gemma4:latest
+    litellm_params:
+      model: os.environ/VLLM_LITELLM_MODEL
+      api_base: os.environ/VLLM_API_BASE
+      api_key: os.environ/VLLM_API_KEY
+      timeout: 28800
+  - model_name: openai/gemma4:latest
+    litellm_params:
+      model: os.environ/VLLM_LITELLM_MODEL
+      api_base: os.environ/VLLM_API_BASE
+      api_key: os.environ/VLLM_API_KEY
+      timeout: 28800
+
+litellm_settings:
+  drop_params: true
+  request_timeout: 28800
+  json_logs: true
+  set_verbose: true
+  callbacks: custom_callbacks.proxy_handler_instance
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

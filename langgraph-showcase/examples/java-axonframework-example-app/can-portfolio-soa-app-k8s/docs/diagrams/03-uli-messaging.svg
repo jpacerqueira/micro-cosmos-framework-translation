@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" font-family="Arial, sans-serif">
+  <defs>
+    <marker id="a3" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1f4e79"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="700" fill="#fafbfc"/>
+  <text x="600" y="34" font-size="22" font-weight="bold" fill="#1f4e79" text-anchor="middle">
+    Universal Layer of Interoperability (ULI) - NATS + Event Hubs
+  </text>
+
+  <!-- Producers -->
+  <g>
+    <rect x="60" y="100" width="200" height="80" rx="6" fill="#e8f5e9" stroke="#1b5e20"/>
+    <text x="160" y="125" font-size="13" font-weight="bold" text-anchor="middle">property-allocation</text>
+    <text x="160" y="148" font-size="11" text-anchor="middle">UliPublisher</text>
+    <text x="160" y="166" font-size="10" fill="#666" text-anchor="middle">Axon -> ULI bridge</text>
+
+    <rect x="60" y="200" width="200" height="80" rx="6" fill="#e8f5e9" stroke="#1b5e20"/>
+    <text x="160" y="225" font-size="13" font-weight="bold" text-anchor="middle">vdr-ingestion</text>
+    <text x="160" y="248" font-size="11" text-anchor="middle">UliPublisher</text>
+
+    <rect x="60" y="300" width="200" height="80" rx="6" fill="#e8f5e9" stroke="#1b5e20"/>
+    <text x="160" y="325" font-size="13" font-weight="bold" text-anchor="middle">user-auth</text>
+    <text x="160" y="348" font-size="11" text-anchor="middle">UliPublisher</text>
+  </g>
+
+  <!-- Envelope visual -->
+  <g>
+    <rect x="320" y="100" width="220" height="280" rx="6" fill="#fff3e0" stroke="#bf360c" stroke-width="1.5"/>
+    <text x="430" y="125" font-size="13" font-weight="bold" text-anchor="middle">ULI Envelope</text>
+    <text x="430" y="150" font-size="10" font-family="monospace" text-anchor="middle">{ messageId,</text>
+    <text x="430" y="166" font-size="10" font-family="monospace" text-anchor="middle">  correlationId,</text>
+    <text x="430" y="182" font-size="10" font-family="monospace" text-anchor="middle">  causationId,</text>
+    <text x="430" y="198" font-size="10" font-family="monospace" text-anchor="middle">  subject,</text>
+    <text x="430" y="214" font-size="10" font-family="monospace" text-anchor="middle">  type,</text>
+    <text x="430" y="230" font-size="10" font-family="monospace" text-anchor="middle">  source,</text>
+    <text x="430" y="246" font-size="10" font-family="monospace" text-anchor="middle">  timestamp,</text>
+    <text x="430" y="262" font-size="10" font-family="monospace" text-anchor="middle">  headers,</text>
+    <text x="430" y="278" font-size="10" font-family="monospace" text-anchor="middle">  payload }</text>
+    <text x="430" y="320" font-size="11" text-anchor="middle">Same shape across</text>
+    <text x="430" y="338" font-size="11" text-anchor="middle">NATS / Event Hubs</text>
+    <text x="430" y="356" font-size="11" text-anchor="middle">/ Kafka / Axon bus</text>
+  </g>
+
+  <!-- NATS -->
+  <g>
+    <rect x="600" y="80" width="280" height="380" rx="6" fill="#e3f2fd" stroke="#0d47a1" stroke-width="1.5"/>
+    <text x="740" y="105" font-size="14" font-weight="bold" text-anchor="middle">NATS JetStream</text>
+    <text x="740" y="125" font-size="11" text-anchor="middle">3-node cluster</text>
+
+    <rect x="620" y="145" width="240" height="60" rx="4" fill="#fff" stroke="#0d47a1"/>
+    <text x="740" y="165" font-size="11" font-weight="bold" text-anchor="middle">Stream: ULI_EVENTS</text>
+    <text x="740" y="183" font-size="10" font-family="monospace" text-anchor="middle">uli.events.&gt;  - 7 days, 50 GiB</text>
+
+    <rect x="620" y="220" width="240" height="60" rx="4" fill="#fff" stroke="#0d47a1"/>
+    <text x="740" y="240" font-size="11" font-weight="bold" text-anchor="middle">Stream: ULI_COMMANDS</text>
+    <text x="740" y="258" font-size="10" font-family="monospace" text-anchor="middle">uli.commands.&gt;  - 24h workqueue</text>
+
+    <rect x="620" y="295" width="240" height="60" rx="4" fill="#fff3e0" stroke="#bf360c"/>
+    <text x="740" y="315" font-size="11" font-weight="bold" text-anchor="middle">Stream: ULI_DLQ</text>
+    <text x="740" y="333" font-size="10" font-family="monospace" text-anchor="middle">uli.dlq.&gt;  - 30 days</text>
+
+    <text x="740" y="395" font-size="10" fill="#666" text-anchor="middle">Durable consumers:</text>
+    <text x="740" y="412" font-size="10" fill="#666" text-anchor="middle">search-index-builder, workflow-orchestrator,</text>
+    <text x="740" y="428" font-size="10" fill="#666" text-anchor="middle">eventhub-bridge, vdr-ingestion-worker</text>
+  </g>
+
+  <!-- Consumers -->
+  <g>
+    <rect x="940" y="100" width="200" height="60" rx="6" fill="#ede7f6" stroke="#311b92"/>
+    <text x="1040" y="125" font-size="12" font-weight="bold" text-anchor="middle">search</text>
+    <text x="1040" y="143" font-size="10" text-anchor="middle">indexes events</text>
+
+    <rect x="940" y="180" width="200" height="60" rx="6" fill="#ede7f6" stroke="#311b92"/>
+    <text x="1040" y="205" font-size="12" font-weight="bold" text-anchor="middle">workflow saga</text>
+    <text x="1040" y="223" font-size="10" text-anchor="middle">advances state</text>
+
+    <rect x="940" y="260" width="200" height="60" rx="6" fill="#ede7f6" stroke="#311b92"/>
+    <text x="1040" y="285" font-size="12" font-weight="bold" text-anchor="middle">eventhub-bridge</text>
+    <text x="1040" y="303" font-size="10" text-anchor="middle">durable replication</text>
+
+    <rect x="940" y="340" width="200" height="60" rx="6" fill="#ede7f6" stroke="#311b92"/>
+    <text x="1040" y="365" font-size="12" font-weight="bold" text-anchor="middle">audit sink</text>
+    <text x="1040" y="383" font-size="10" text-anchor="middle">writes audit.event_log</text>
+  </g>
+
+  <!-- Event Hubs -->
+  <rect x="940" y="440" width="200" height="80" rx="6" fill="#fce4ec" stroke="#880e4f"/>
+  <text x="1040" y="467" font-size="13" font-weight="bold" text-anchor="middle">Azure Event Hubs</text>
+  <text x="1040" y="488" font-size="11" text-anchor="middle">Kafka-compatible</text>
+  <text x="1040" y="506" font-size="10" fill="#666" text-anchor="middle">analytics / replay</text>
+
+  <!-- Inbox/outbox -->
+  <rect x="320" y="440" width="220" height="120" rx="6" fill="#fff" stroke="#1f4e79"/>
+  <text x="430" y="465" font-size="13" font-weight="bold" text-anchor="middle">PG: can_uli</text>
+  <text x="430" y="488" font-size="11" text-anchor="middle">uli.outbox  (idempotent send)</text>
+  <text x="430" y="506" font-size="11" text-anchor="middle">uli.inbox  (dedup on receive)</text>
+  <text x="430" y="524" font-size="11" text-anchor="middle">uli.dead_letter</text>
+  <text x="430" y="546" font-size="10" fill="#666" text-anchor="middle">at-least-once + idempotency</text>
+
+  <!-- Arrows -->
+  <line x1="260" y1="140" x2="320" y2="180" stroke="#1f4e79" stroke-width="1" marker-end="url(#a3)"/>
+  <line x1="260" y1="240" x2="320" y2="220" stroke="#1f4e79" stroke-width="1" marker-end="url(#a3)"/>
+  <line x1="260" y1="340" x2="320" y2="260" stroke="#1f4e79" stroke-width="1" marker-end="url(#a3)"/>
+
+  <line x1="540" y1="240" x2="600" y2="240" stroke="#1f4e79" stroke-width="1.5" marker-end="url(#a3)"/>
+
+  <line x1="880" y1="175" x2="940" y2="130" stroke="#1f4e79" stroke-width="1" marker-end="url(#a3)"/>
+  <line x1="880" y1="175" x2="940" y2="210" stroke="#1f4e79" stroke-width="1" marker-end="url(#a3)"/>
+  <line x1="880" y1="175" x2="940" y2="290" stroke="#1f4e79" stroke-width="1" marker-end="url(#a3)"/>
+  <line x1="880" y1="325" x2="940" y2="370" stroke="#1f4e79" stroke-width="1" marker-end="url(#a3)"/>
+
+  <line x1="1040" y1="320" x2="1040" y2="440" stroke="#880e4f" stroke-width="1.5" marker-end="url(#a3)"/>
+  <text x="1060" y="385" font-size="10" fill="#880e4f">replicate</text>
+
+  <line x1="430" y1="380" x2="430" y2="440" stroke="#1f4e79" stroke-width="1" marker-end="url(#a3)"/>
+
+  <text x="600" y="630" font-size="11" fill="#666" text-anchor="middle">
+    Producers wrap domain events in the ULI envelope and publish to NATS subjects.
+    Consumers use durable groups, dedupe via uli.inbox, and park poison messages on uli.dlq.
+  </text>
+</svg>

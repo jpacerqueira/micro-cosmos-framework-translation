@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: can-legacy
+resources:
+  - 00-namespace/namespace.yaml
+  - 10-infrastructure/oracle-secret.yaml
+  - 10-infrastructure/oracle-statefulset.yaml
+  - 10-infrastructure/activemq-deployment.yaml
+  - 10-infrastructure/logging/elasticsearch-statefulset.yaml
+  - 10-infrastructure/logging/filebeat-daemonset.yaml
+  - 10-infrastructure/logging/kibana-deployment.yaml
+  - 20-services/property-allocation.yaml
+  - 20-services/user-auth.yaml
+  - 20-services/vdr-ingestion.yaml
+  - 20-services/workflow.yaml
+  - 20-services/search.yaml
+  - 20-services/webapp-bff.yaml
+  - 20-services/frontend.yaml
+  - 30-ingress/ingress.yaml

@@ -1,0 +1,16 @@
+{
+  "name": "WarehouseStreamingIngest",
+  "properties": {
+    "description": "Warehouse staging landing zone: INSERT INTO streaming_data_staging from batch job. NOT real streaming — no Event Hub consumer.",
+    "activities": [
+      {
+        "name": "RunWarehouseStreamingStaging",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "/project_domain/notebooks/03_warehouse_streaming/WarehouseStreamingStaging"
+        },
+        "dependsOn": []
+      }
+    ]
+  }
+}

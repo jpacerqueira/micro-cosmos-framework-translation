@@ -1,0 +1,41 @@
+spring:
+  application: { name: webapp-bff }
+  graphql:
+    graphiql.enabled: true
+    schema.printer.enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/${AAD_TENANT_ID:common}/v2.0
+          audiences:  ${AAD_CLIENT_ID:api://can}
+
+services:
+  property-allocation: ${SERVICE_PROPERTY_ALLOCATION:http://property-allocation.can-app.svc.cluster.local:8080}
+  user-auth:           ${SERVICE_USER_AUTH:http://user-auth.can-app.svc.cluster.local:8080}
+  search:              ${SERVICE_SEARCH:http://search.can-app.svc.cluster.local:8080}
+
+axon:
+  axonserver:
+    servers: ${AXON_AXONSERVER_SERVERS:localhost:8124}
+  serializer:
+    general: jackson
+    events:  jackson
+    messages: jackson
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  server.port: 8081
+  endpoints.web.exposure.include: health,info,prometheus,metrics
+  endpoint.health:
+    probes.enabled: true
+    group:
+      readiness: { include: readinessState,axonServer }
+      liveness:  { include: livenessState }
+  tracing.sampling.probability: 0.1
+
+logging:
+  pattern.level: "%5p [traceId=%X{traceId:-} correlationId=%X{correlationId:-}]"

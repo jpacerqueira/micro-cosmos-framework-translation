@@ -1,0 +1,6 @@
+kiro-dev-powers-app-modernization/
+.claude/
+runs/
+__pycache__/
+*.pyc
+.git/

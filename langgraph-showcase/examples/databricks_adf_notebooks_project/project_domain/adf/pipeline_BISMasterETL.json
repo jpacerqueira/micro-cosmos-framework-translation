@@ -1,0 +1,63 @@
+{
+  "name": "BISMasterETL",
+  "properties": {
+    "description": "BIS hub master ETL: customer/order/product ingestion → BIS analytics → branded REPLACE write-back",
+    "activities": [
+      {
+        "name": "RunCustomer360",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "/project_domain/notebooks/01_bis_hub/BISHubAnalytics"
+        },
+        "dependsOn": []
+      },
+      {
+        "name": "RunOrderIngestion",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "/project_domain/notebooks/01_bis_hub/BISHubAnalytics"
+        },
+        "dependsOn": [
+          {"activity": "RunCustomer360", "dependencyConditions": ["Succeeded"]}
+        ]
+      },
+      {
+        "name": "RunProductMaster",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "/project_domain/notebooks/01_bis_hub/BISHubAnalytics"
+        },
+        "dependsOn": []
+      },
+      {
+        "name": "RunBISAnalytics",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "/project_domain/notebooks/01_bis_hub/BISHubAnalytics"
+        },
+        "dependsOn": [
+          {"activity": "RunOrderIngestion", "dependencyConditions": ["Succeeded"]},
+          {"activity": "RunProductMaster", "dependencyConditions": ["Succeeded"]}
+        ]
+      },
+      {
+        "name": "RunBrandedReplace",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "/project_domain/notebooks/02_branded_spoke/BrandedReplaceLoad"
+        },
+        "dependsOn": [
+          {"activity": "RunBISAnalytics", "dependencyConditions": ["Succeeded"]}
+        ]
+      },
+      {
+        "name": "RunWarehouseStaging",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "/project_domain/notebooks/03_warehouse_streaming/WarehouseStreamingStaging"
+        },
+        "dependsOn": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+config {
+  type: "table",
+  schema: "staging",
+  name: "stg_customers",
+  description: "Cleansed retail customers.",
+  dependencies: ["raw_customers"]
+}
+
+SELECT
+  customer_id,
+  full_name,
+  IFNULL(segment, 'unassigned') AS segment,
+  country
+FROM ${ref("raw_customers")}
+WHERE customer_id IS NOT NULL

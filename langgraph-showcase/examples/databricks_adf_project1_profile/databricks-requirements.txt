@@ -1,0 +1,3 @@
+databricks-cli>=0.17.0
+databricks-connect>=13.3.0
+databricks-sdk>=0.12.0 

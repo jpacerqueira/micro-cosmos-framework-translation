@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" font-family="Arial, sans-serif">
+  <defs>
+    <marker id="a2" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1f4e79"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="720" fill="#fafbfc"/>
+
+  <text x="600" y="34" font-size="22" font-weight="bold" fill="#1f4e79" text-anchor="middle">
+    CQRS + Event Sourcing - Property Allocation
+  </text>
+
+  <!-- Client -->
+  <rect x="40" y="80" width="160" height="80" rx="6" fill="#fff" stroke="#1f4e79"/>
+  <text x="120" y="110" font-size="13" font-weight="bold" text-anchor="middle">UI / BFF</text>
+  <text x="120" y="135" font-size="11" text-anchor="middle">GraphQL mutation</text>
+
+  <!-- Command Gateway -->
+  <rect x="240" y="80" width="180" height="80" rx="6" fill="#fff7e6" stroke="#b06b00"/>
+  <text x="330" y="110" font-size="13" font-weight="bold" text-anchor="middle">CommandGateway</text>
+  <text x="330" y="135" font-size="11" text-anchor="middle">Axon CommandBus</text>
+
+  <!-- Aggregate -->
+  <rect x="460" y="80" width="220" height="200" rx="6" fill="#e8f5e9" stroke="#1b5e20" stroke-width="1.5"/>
+  <text x="570" y="110" font-size="14" font-weight="bold" text-anchor="middle">Portfolio Aggregate</text>
+  <text x="570" y="135" font-size="11" text-anchor="middle">@Aggregate</text>
+  <line x1="475" y1="150" x2="665" y2="150" stroke="#1b5e20" stroke-dasharray="3,2"/>
+  <text x="570" y="170" font-size="11" text-anchor="middle">@CommandHandler</text>
+  <text x="570" y="190" font-size="11" text-anchor="middle">CreatePortfolio</text>
+  <text x="570" y="208" font-size="11" text-anchor="middle">AddPropertyToPortfolio</text>
+  <text x="570" y="226" font-size="11" text-anchor="middle">AllocatePropertyToBroker</text>
+  <text x="570" y="244" font-size="11" text-anchor="middle">SubmitValuation</text>
+  <text x="570" y="262" font-size="11" text-anchor="middle">ClosePortfolio</text>
+
+  <!-- Event store -->
+  <rect x="720" y="80" width="200" height="100" rx="6" fill="#e3f2fd" stroke="#0d47a1"/>
+  <text x="820" y="105" font-size="13" font-weight="bold" text-anchor="middle">Axon Server</text>
+  <text x="820" y="125" font-size="11" text-anchor="middle">Event Store</text>
+  <text x="820" y="145" font-size="11" text-anchor="middle">Append-only stream</text>
+  <text x="820" y="165" font-size="11" text-anchor="middle">per aggregate</text>
+
+  <!-- Event types -->
+  <rect x="720" y="200" width="200" height="180" rx="6" fill="#fff" stroke="#0d47a1" stroke-dasharray="3,2"/>
+  <text x="820" y="222" font-size="12" font-weight="bold" text-anchor="middle">Domain Events</text>
+  <text x="820" y="245" font-size="10" text-anchor="middle">PortfolioCreated</text>
+  <text x="820" y="262" font-size="10" text-anchor="middle">PropertyAddedToPortfolio</text>
+  <text x="820" y="279" font-size="10" text-anchor="middle">PropertyAllocatedToBroker</text>
+  <text x="820" y="296" font-size="10" text-anchor="middle">ValuationSubmitted</text>
+  <text x="820" y="313" font-size="10" text-anchor="middle">PortfolioClosed</text>
+
+  <!-- Projections -->
+  <rect x="40" y="400" width="240" height="100" rx="6" fill="#fce4ec" stroke="#880e4f"/>
+  <text x="160" y="425" font-size="13" font-weight="bold" text-anchor="middle">Read Projections</text>
+  <text x="160" y="450" font-size="11" text-anchor="middle">@ProcessingGroup</text>
+  <text x="160" y="468" font-size="11" text-anchor="middle">portfolio_view, property_view</text>
+  <text x="160" y="486" font-size="11" text-anchor="middle">PostgreSQL JPA</text>
+
+  <!-- Sagas -->
+  <rect x="320" y="400" width="240" height="100" rx="6" fill="#fff3e0" stroke="#bf360c"/>
+  <text x="440" y="425" font-size="13" font-weight="bold" text-anchor="middle">Sagas / Process Mgr</text>
+  <text x="440" y="450" font-size="11" text-anchor="middle">AllocationSaga</text>
+  <text x="440" y="468" font-size="11" text-anchor="middle">@StartSaga / @EndSaga</text>
+  <text x="440" y="486" font-size="11" text-anchor="middle">in workflow service</text>
+
+  <!-- ULI Bridge -->
+  <rect x="600" y="400" width="240" height="100" rx="6" fill="#e0f7fa" stroke="#006064"/>
+  <text x="720" y="425" font-size="13" font-weight="bold" text-anchor="middle">ULI Event Bridge</text>
+  <text x="720" y="450" font-size="11" text-anchor="middle">Publishes envelope to NATS</text>
+  <text x="720" y="468" font-size="11" text-anchor="middle">subject:</text>
+  <text x="720" y="486" font-size="10" text-anchor="middle" font-family="monospace">uli.events.portfolio.X</text>
+
+  <!-- Search index -->
+  <rect x="880" y="400" width="240" height="100" rx="6" fill="#ede7f6" stroke="#311b92"/>
+  <text x="1000" y="425" font-size="13" font-weight="bold" text-anchor="middle">Search Indexer</text>
+  <text x="1000" y="450" font-size="11" text-anchor="middle">PG tsvector</text>
+  <text x="1000" y="468" font-size="11" text-anchor="middle">subscribes to ULI events</text>
+  <text x="1000" y="486" font-size="11" text-anchor="middle">via NATS</text>
+
+  <!-- Read API -->
+  <rect x="40" y="560" width="240" height="80" rx="6" fill="#fff" stroke="#1f4e79"/>
+  <text x="160" y="588" font-size="13" font-weight="bold" text-anchor="middle">Read API</text>
+  <text x="160" y="612" font-size="11" text-anchor="middle">GET /portfolios, /properties</text>
+
+  <!-- Arrows -->
+  <line x1="200" y1="120" x2="240" y2="120" stroke="#1f4e79" stroke-width="1.5" marker-end="url(#a2)"/>
+  <text x="220" y="112" font-size="10" text-anchor="middle">command</text>
+
+  <line x1="420" y1="120" x2="460" y2="120" stroke="#1f4e79" stroke-width="1.5" marker-end="url(#a2)"/>
+  <text x="440" y="112" font-size="10" text-anchor="middle">dispatch</text>
+
+  <line x1="680" y1="120" x2="720" y2="120" stroke="#1f4e79" stroke-width="1.5" marker-end="url(#a2)"/>
+  <text x="700" y="112" font-size="10" text-anchor="middle">events</text>
+
+  <line x1="820" y1="180" x2="820" y2="200" stroke="#0d47a1" stroke-width="1" stroke-dasharray="2,2"/>
+
+  <line x1="780" y1="380" x2="200" y2="400" stroke="#1f4e79" stroke-width="1" marker-end="url(#a2)"/>
+  <line x1="780" y1="380" x2="440" y2="400" stroke="#1f4e79" stroke-width="1" marker-end="url(#a2)"/>
+  <line x1="780" y1="380" x2="720" y2="400" stroke="#1f4e79" stroke-width="1" marker-end="url(#a2)"/>
+
+  <line x1="840" y1="450" x2="880" y2="450" stroke="#311b92" stroke-width="1.5" marker-end="url(#a2)"/>
+  <text x="860" y="442" font-size="10" text-anchor="middle">NATS</text>
+
+  <line x1="160" y1="500" x2="160" y2="560" stroke="#1f4e79" stroke-width="1" marker-end="url(#a2)"/>
+  <text x="186" y="535" font-size="10" text-anchor="start">queries</text>
+
+  <text x="600" y="690" font-size="11" fill="#666" text-anchor="middle">
+    Write side (left to right): commands -> aggregate -> events -> event store.
+    Read side (top to bottom): events -> projections / sagas / ULI bridge -> read API.
+  </text>
+</svg>

@@ -1,0 +1,54 @@
+version: "3.8"
+
+# =============================================================================
+# BankXYZ Fraud Detection — Docker Compose
+#
+# IMPORTANT: The 'app' service requires Windows containers.
+# Run Docker Desktop in Windows container mode:
+#   Right-click Docker tray icon -> "Switch to Windows containers..."
+#
+# SQL Server runs on Linux (linux/amd64) — supported on all platforms.
+# The mixed-OS setup works on Windows hosts only.
+#
+# Quick start (SQL Server only, app run from Visual Studio):
+#   docker compose up sqlserver
+#
+# Full Docker (Windows host with Windows containers):
+#   docker compose up --build
+# =============================================================================
+
+services:
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    platform: linux/amd64
+    environment:
+      SA_PASSWORD: "${SQL_SA_PASSWORD}"
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Express"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P ${SQL_SA_PASSWORD} -Q 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: windows/amd64
+    ports:
+      - "8080:80"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      FRAUD_DB_CONNECTION: "Server=sqlserver,1433;Database=FraudDetectionDb;User Id=fdadmin;Password=${SQL_FDADMIN_PASSWORD};MultipleActiveResultSets=False;"
+
+volumes:
+  sqlserver_data:

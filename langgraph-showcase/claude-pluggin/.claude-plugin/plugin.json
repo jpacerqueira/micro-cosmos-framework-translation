@@ -1,0 +1,10 @@
+{
+  "name": "micro-focus",
+  "displayName": "Micro-Focus",
+  "version": "1.0.1",
+  "description": "Application framework translation. Web frameworks: Spring Boot, Axon Framework, NestJS, React, Django, Flask, and ASP.NET Core. Data engineering frameworks: Databricks, Azure Data Factory, BigQuery Dataform, and Snowflake dbt. Plan the translation or run it through code, in deterministic or LLM mode.",
+  "author": {
+    "name": "Joao Pedro Afonso Cerqueira"
+  },
+  "license": "MIT"
+}

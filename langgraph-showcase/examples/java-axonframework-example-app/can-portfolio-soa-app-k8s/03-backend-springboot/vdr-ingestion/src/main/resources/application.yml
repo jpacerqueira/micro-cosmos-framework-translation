@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: vdr-ingestion
+  datasource:
+    url:      ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/can_app?currentSchema=vdr}
+    username: ${SPRING_DATASOURCE_USERNAME:canadmin}
+    password: ${SPRING_DATASOURCE_PASSWORD:canadmin}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: vdr
+    open-in-view: false
+  flyway:
+    enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/${AAD_TENANT_ID:common}/v2.0
+          audiences:  ${AAD_CLIENT_ID:api://can}
+
+axon:
+  axonserver:
+    servers: ${AXON_AXONSERVER_SERVERS:localhost:8124}
+  serializer:
+    general: jackson
+    events:  jackson
+    messages: jackson
+
+nats:
+  url:      ${NATS_URL:nats://localhost:4222}
+  user:     ${NATS_USER:uli-publisher}
+  password: ${NATS_PASSWORD:}
+
+# Azure Blob Storage — use Azurite connection string for local dev.
+azure:
+  storage:
+    connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
+    account-name:    ${BLOB_STORAGE_ACCOUNT:devstoreaccount1}
+    container-raw:   ${BLOB_CONTAINER_RAW:vdr-raw}
+    container-clean: ${BLOB_CONTAINER_CLEAN:vdr-clean}
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  server.port: 8081
+  endpoints:
+    web.exposure.include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes.enabled: true
+      group:
+        readiness: { include: readinessState,db }
+        liveness:  { include: livenessState }
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    root: INFO
+    com.customer.can: DEBUG
+  pattern:
+    level: "%5p [traceId=%X{traceId:-} spanId=%X{spanId:-} correlationId=%X{correlationId:-}]"

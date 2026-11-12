@@ -1,0 +1,11 @@
+snowflake_retail:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: acme-retail
+      user: transformer
+      role: TRANSFORMER
+      database: RETAIL
+      schema: ANALYTICS
+      warehouse: TRANSFORM_WH

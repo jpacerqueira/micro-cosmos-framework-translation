@@ -1,0 +1,22 @@
+###############################################################################
+# Apply order:
+#   1. 00-namespaces/
+#   2. Install Istio with: istioctl install -f 10-istio/istio-operator.yaml
+#   3. 10-istio/mesh-policies.yaml + edge-gateway.yaml
+#   4. 20-platform/
+#   5. 30-services/
+#   6. 40-observability/
+#   7. 50-policies/
+###############################################################################
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-namespaces/namespaces.yaml
+  - 10-istio/mesh-policies.yaml
+  - 10-istio/edge-gateway.yaml
+  - 20-platform/platform.yaml
+  - 30-services/webapp-bff/webapp-bff.yaml
+  - 30-services/services-bundle.yaml
+  - 40-observability/otel-collector.yaml
+commonLabels:
+  app.kubernetes.io/part-of: customer-application-name

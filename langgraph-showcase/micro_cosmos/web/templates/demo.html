@@ -1,0 +1,1056 @@
+{% extends "base.html" %}
+{% block title %}Micro-Cosmos{% endblock %}
+{% block body %}
+<style>
+/* ── Demo page layout ───────────────────────────────────────────── */
+.demo-hero {
+  padding: 48px 48px 36px;
+  background: var(--panel);
+  border-top: 4px solid var(--ink);
+  position: relative;
+}
+.demo-hero::before {
+  content: "";
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-bottom: 28px;
+}
+.demo-hero .classification {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 10px;
+}
+.demo-hero h1 { font-size: 2.8rem; margin-bottom: 8px; }
+.demo-hero .lede {
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  color: var(--muted);
+  max-width: 68ch;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.demo-shell {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 28px;
+  padding: 28px 0 48px;
+  align-items: start;
+}
+
+/* ── Family menu ────────────────────────────────────────────────── */
+.demo-family-menu {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.demo-family-menu a {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: 1px solid var(--rule);
+  padding: 8px 12px;
+  color: var(--ink);
+  background: var(--panel);
+}
+.demo-family-menu a:hover { border-color: var(--ink); }
+.demo-family {
+  margin-bottom: 28px;
+}
+.demo-family-heading {
+  font-size: 1.35rem;
+  margin: 0 0 6px;
+}
+.demo-family-rule {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0 0 12px;
+  max-width: 72ch;
+}
+.demo-card-platform {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.demo-card-maps {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.demo-mapping-hint {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* ── Example picker ─────────────────────────────────────────────── */
+.demo-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.demo-card {
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  position: relative;
+}
+.demo-card:hover { border-color: var(--muted); }
+.demo-card.selected {
+  border-color: var(--ink);
+  border-width: 2px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.demo-card-name {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.demo-card-langs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.demo-lang-badge {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+  background: var(--sage);
+}
+.demo-lang-badge.primary {
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.demo-card-count {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
+.demo-card-desc {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-bottom: 10px;
+  font-style: italic;
+  border-left: 2px solid var(--rule);
+  padding-left: 8px;
+}
+
+/* ── Subfolder rows ─────────────────────────────────────────────── */
+.demo-subfolders {
+  margin-top: 10px;
+  border-top: 1px solid var(--rule);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.demo-subfolders-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.demo-subfolder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--sage);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.1s ease;
+}
+.demo-subfolder:hover { border-color: var(--muted); }
+.demo-subfolder.selected {
+  border-color: var(--ink);
+  background: var(--bg);
+}
+
+.demo-sf-name {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--ink);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.demo-sf-name::before { content: "↳ "; color: var(--muted); }
+
+/* ── Launch panel ───────────────────────────────────────────────── */
+.demo-launch {
+  position: sticky;
+  top: 24px;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--ink);
+  padding: 20px;
+}
+
+.demo-launch h2 {
+  font-size: 1.2rem;
+  margin-bottom: 18px;
+}
+
+.demo-form { display: flex; flex-direction: column; gap: 14px; }
+
+.demo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.demo-label {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.demo-selected-path {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-style: italic;
+  word-break: break-all;
+}
+.demo-selected-path.has-value {
+  color: var(--ink);
+  font-style: normal;
+}
+
+.demo-detected-langs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 22px;
+}
+
+.demo-form input[type="text"],
+.demo-form select {
+  padding: 9px 11px;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--bg);
+  font: 13px var(--body);
+  color: var(--ink);
+  width: 100%;
+}
+.demo-form input[type="text"]:focus,
+.demo-form select:focus { outline: none; border-color: var(--ink); }
+
+.demo-submit {
+  padding: 11px 18px;
+  border: 1px solid var(--rule);
+  background: var(--sage);
+  color: var(--muted);
+  border-radius: 0;
+  cursor: not-allowed;
+  font: 500 13px/1 var(--body);
+  letter-spacing: 0.02em;
+  width: 100%;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.demo-submit.ready {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+  cursor: pointer;
+}
+.demo-submit.ready:hover { background: var(--accent); border-color: var(--accent); }
+
+.demo-started { margin-top: 14px; }
+
+.demo-empty {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--muted);
+  padding: 32px;
+  border: 1px dashed var(--rule);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .demo-shell { grid-template-columns: 1fr; }
+  .demo-launch { position: static; }
+}
+
+/* ── Upload zone ─────────────────────────────────────────────────── */
+.demo-upload-wrap {
+  padding: 0 32px 0;
+}
+.demo-upload-zone {
+  border: 2px dashed var(--rule);
+  padding: 28px 32px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+  margin-bottom: 4px;
+  position: relative;
+}
+.demo-upload-zone:hover,
+.demo-upload-zone.drag-over {
+  border-color: var(--ink);
+  background: var(--sage);
+}
+.demo-upload-zone.uploading {
+  opacity: 0.55;
+  pointer-events: none;
+}
+.demo-upload-icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.demo-upload-body {
+  flex: 1;
+}
+.demo-upload-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 3px;
+  color: var(--ink);
+}
+.demo-upload-hint {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 0;
+}
+.demo-upload-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.demo-upload-btn {
+  display: inline-block;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: 500 12px/1 var(--body);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  border: 1px solid var(--accent);
+  transition: filter 0.12s ease;
+  white-space: nowrap;
+}
+.demo-upload-btn:hover { filter: brightness(1.08); }
+.demo-upload-status {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 120px;
+  text-align: right;
+}
+.demo-upload-status.error  { color: #c00; }
+.demo-upload-status.ok     { color: var(--accent, #1a7a4a); }
+
+.demo-upload-progress {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 2px;
+  background: var(--ink);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+/* ── GitHub URL box (occupies the top slot; zip upload moves to the bottom) ─ */
+.demo-github-zone {
+  border: 2px dashed var(--rule);
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  background: var(--bg);
+  transition: border-color 0.12s ease;
+  margin-bottom: 4px;
+  position: relative;
+}
+.demo-github-zone:focus-within { border-color: var(--ink); }
+.demo-github-zone.fetching { opacity: 0.55; pointer-events: none; }
+.demo-github-top {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.demo-github-input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  font: 13px var(--body);
+  color: var(--ink);
+}
+.demo-github-input:focus { outline: none; border-color: var(--ink); }
+
+.demo-upload-shell-bottom {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+}
+</style>
+
+<section class="demo-hero">
+  <p class="classification">Micro-Cosmos · Demo</p>
+  <h1>Choose an example</h1>
+  <p class="lede">
+    ETL estates and web or Java applications are separate. A data platform maps only
+    to the other data platforms. An application maps only to an application language.
+  </p>
+</section>
+
+<!-- ── GitHub URL box ── -->
+<div class="demo-upload-wrap">
+  <div class="demo-github-zone" id="demo-github-zone">
+    <div class="demo-github-top">
+      <div class="demo-upload-icon">🔗</div>
+      <div class="demo-upload-body">
+        <p class="demo-upload-title">Start from a GitHub repository</p>
+        <p class="demo-upload-hint">Paste a public repo URL — it will be downloaded as a zip, unpacked into examples/ and selectable below</p>
+      </div>
+      <div class="demo-upload-actions">
+        <span class="demo-upload-status" id="demo-github-status"></span>
+        <button type="button" class="demo-upload-btn" id="demo-github-btn">Fetch</button>
+      </div>
+    </div>
+    <input type="text" class="demo-github-input" id="demo-github-input"
+           placeholder="https://github.com/owner/repo" autocomplete="off">
+    <div class="demo-upload-progress" id="demo-github-progress"></div>
+  </div>
+</div>
+
+<div style="padding: 0 32px;">
+  <div class="demo-shell">
+
+    <!-- ── Example picker, split by what the estate is allowed to become ── -->
+    <div class="demo-catalog" id="demo-catalog">
+      <nav class="demo-family-menu" aria-label="Example families">
+        {% for group in example_groups %}
+        <a href="#menu-{{ group.id }}">{{ group.label }}</a>
+        {% endfor %}
+      </nav>
+      {% for group in example_groups %}
+      <section class="demo-family" id="menu-{{ group.id }}">
+        <h2 class="demo-family-heading">{{ group.label }}</h2>
+        <p class="demo-family-rule">{{ group.rule }}</p>
+        <div class="demo-picker" data-family="{{ group.id }}">
+          {% if group.examples %}
+            {% for ex in group.examples %}
+            <div class="demo-card"
+                 data-path="{{ ex.path }}"
+                 data-langs="{{ ex.langs | tojson | forceescape }}"
+                 data-family="{{ ex.family }}"
+                 data-platform="{{ ex.platform }}"
+                 data-platform-label="{{ ex.platform_label }}"
+                 data-targets="{{ ex.targets | tojson | forceescape }}">
+
+              <div class="demo-card-platform">{{ ex.platform_label }}</div>
+              <div class="demo-card-name">{{ ex.name }}</div>
+              <div class="demo-card-maps">Maps to {{ ex.maps_to }}</div>
+
+              <div class="demo-card-langs">
+                {% for lang_item in ex.langs[:4] %}
+                <span class="demo-lang-badge{% if loop.first %} primary{% endif %}">
+                  {{ lang_item.lang }}
+                  <span class="demo-card-count">{{ lang_item.count }}</span>
+                </span>
+                {% endfor %}
+                {% if ex.langs | length == 0 %}
+                <span class="demo-lang-badge" style="color:var(--muted)">no source</span>
+                {% endif %}
+              </div>
+
+              {% if ex.description %}
+              <div class="demo-card-desc">{{ ex.description }}</div>
+              {% endif %}
+
+              {% if ex.subfolders %}
+              <div class="demo-subfolders">
+                <div class="demo-subfolders-label">Subfolders</div>
+                {% for sub in ex.subfolders %}
+                <div class="demo-subfolder"
+                     data-path="{{ sub.path }}"
+                     data-langs="{{ sub.langs | tojson | forceescape }}">
+                  <span class="demo-sf-name">{{ sub.name }}</span>
+                  {% for lang_item in sub.langs[:2] %}
+                  <span class="demo-lang-badge" style="font-size:0.6rem">{{ lang_item.lang }}</span>
+                  {% endfor %}
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="demo-empty">
+              No examples in this group yet.
+            </div>
+          {% endif %}
+        </div>
+      </section>
+      {% endfor %}
+    </div>
+
+    <!-- ── Launch panel ── -->
+    <div class="demo-launch">
+      <h2>Launch analysis</h2>
+      <form class="demo-form" id="demo-form"
+            hx-post="/runs" hx-target="#demo-started" hx-swap="innerHTML">
+
+        <input type="hidden" name="source_path" id="demo-source-path-input">
+        <input type="hidden" name="github_url" id="demo-github-url-input">
+
+        <div class="demo-field">
+          <span class="demo-label">Source path</span>
+          <span class="demo-selected-path" id="demo-selected-path-display">No example selected</span>
+        </div>
+
+        <div class="demo-field">
+          <span class="demo-label">Detected languages</span>
+          <div class="demo-detected-langs" id="demo-detected-langs"></div>
+        </div>
+
+        <div class="demo-field">
+          <span class="demo-label">Source language</span>
+          <input type="text" name="source_lang" id="demo-source-lang-input"
+                 placeholder="Auto-detect" list="demo-source-lang-list" autocomplete="off">
+          <datalist id="demo-source-lang-list">
+            <option value="cobol">
+            <option value="pyspark" label="PySpark + Databricks">
+            <option value="python3">
+            <option value="python2">
+            <option value="java21">
+            <option value="java8">
+            <option value="c">
+            <option value="go">
+            <option value="php">
+            <option value="javascript">
+            <option value="typescript">
+            <option value="ruby">
+            <option value="kotlin">
+            <option value="rust">
+            <option value="csharp">
+            <option value="scala">
+            <option value="swift">
+          </datalist>
+        </div>
+
+        <div class="demo-field">
+          <span class="demo-label">Target</span>
+          <p class="demo-mapping-hint" id="demo-mapping-hint">Select an example. The target list shows only what that estate is allowed to become.</p>
+          <select name="target_lang" id="demo-target-lang">
+            <option value="">— select an example first —</option>
+          </select>
+        </div>
+
+        <div class="demo-field">
+          <span class="demo-label">Mode</span>
+          <label class="skip-llm-toggle" for="demo-skip-llm-input">
+            <input type="checkbox" id="demo-skip-llm-input" name="skip_llm" value="true"
+                   {% if skip_llm_default %}checked{% endif %}>
+            <span class="toggle-label-text">
+              <span class="mode-llm">LLM</span>
+              <span class="mode-det">Deterministic</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="demo-field run-form-pause-planning">
+          <label class="auto-approve-toggle" for="demo-pause-planning-input">
+            <input type="checkbox" id="demo-pause-planning-input" name="pause_after_planning" value="true">
+            <span class="toggle-label-text">Pause after planning</span>
+          </label>
+          <p class="pause-planning-hint">Stops the run once Gate 4.5 is approved — no code translation loop.</p>
+        </div>
+
+        <div class="demo-field run-form-auto-approve">
+          <label class="auto-approve-toggle" for="demo-auto-approve-input">
+            <input type="checkbox" id="demo-auto-approve-input" name="auto_approve_gates" value="true">
+            <span class="toggle-label-text">Auto-approve gates</span>
+          </label>
+          <input type="text" name="auto_approve_reviewer_name" id="demo-auto-approve-reviewer-name"
+                 class="auto-approve-reviewer-input" placeholder="Approver name" hidden>
+        </div>
+
+        <button type="submit" class="demo-submit" id="demo-submit" disabled>
+          Select an example to start →
+        </button>
+        <div class="llm-confirm-inline" hidden>
+          <h3 class="llm-confirm-title">Run in LLM mode?</h3>
+          <p class="llm-confirm-text">LLM mode makes real model calls and takes longer. Deterministic mode is faster and uses fewer resources.</p>
+          <div class="llm-confirm-actions">
+            <button type="button" class="modal-btn modal-btn-secondary" data-modal-action="cancel">Cancel</button>
+            <button type="button" class="modal-btn modal-btn-primary" data-modal-action="confirm">Continue with LLM mode</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="demo-started" id="demo-started"></div>
+    </div>
+
+    <!-- ── Upload zone (moved below the example grid) ── -->
+    <div class="demo-upload-shell-bottom">
+      <div class="demo-upload-zone" id="demo-upload-zone">
+        <div class="demo-upload-icon">📦</div>
+        <div class="demo-upload-body">
+          <p class="demo-upload-title">Upload your own project</p>
+          <p class="demo-upload-hint">Drag &amp; drop a <strong>.zip</strong> of any source project — it will be unpacked into examples/ and selectable above</p>
+        </div>
+        <div class="demo-upload-actions">
+          <span class="demo-upload-status" id="demo-upload-status"></span>
+          <label class="demo-upload-btn" for="demo-upload-input">Browse .zip</label>
+          <input type="file" id="demo-upload-input" accept=".zip" style="display:none">
+        </div>
+        <div class="demo-upload-progress" id="demo-upload-progress"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var selectedPath = null;
+  var selectedLangs = [];
+
+  var pathInput    = document.getElementById("demo-source-path-input");
+  var githubUrlInput = document.getElementById("demo-github-url-input");
+  var pathDisplay  = document.getElementById("demo-selected-path-display");
+  var langsEl      = document.getElementById("demo-detected-langs");
+  var langInput    = document.getElementById("demo-source-lang-input");
+  var targetSelect = document.getElementById("demo-target-lang");
+  var mappingHint  = document.getElementById("demo-mapping-hint");
+  var submitBtn    = document.getElementById("demo-submit");
+
+  function pickerFor(family) {
+    return document.querySelector('.demo-picker[data-family="' + (family || "application") + '"]')
+      || document.querySelector(".demo-picker");
+  }
+
+  function parseLangs(raw) {
+    try { return JSON.parse(raw) || []; } catch (e) { return []; }
+  }
+
+  function renderLangs(langs) {
+    langsEl.innerHTML = "";
+    if (!langs || langs.length === 0) {
+      langsEl.innerHTML = '<span style="font-family:var(--mono);font-size:0.72rem;color:var(--muted)">none detected</span>';
+      return;
+    }
+    langs.slice(0, 6).forEach(function (l, i) {
+      var span = document.createElement("span");
+      span.className = "demo-lang-badge" + (i === 0 ? " primary" : "");
+      span.textContent = l.lang + " " + l.count;
+      langsEl.appendChild(span);
+    });
+    if (langs.length > 0 && !langInput.dataset.userEdited) {
+      langInput.value = langs[0].lang;
+    }
+  }
+
+  function parseTargets(raw) {
+    try { return JSON.parse(raw) || []; } catch (e) { return []; }
+  }
+
+  function applyTargets(targets, platformLabel) {
+    var previous = targetSelect.value;
+    targetSelect.innerHTML = "";
+    var placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = targets.length ? "— choose target —" : "— select an example first —";
+    targetSelect.appendChild(placeholder);
+    targets.forEach(function (t) {
+      var opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = t.label;
+      targetSelect.appendChild(opt);
+    });
+    if (previous && targets.some(function (t) { return t.id === previous; })) {
+      targetSelect.value = previous;
+    } else {
+      targetSelect.value = "";
+    }
+    if (mappingHint) {
+      if (targets.length) {
+        mappingHint.textContent = (platformLabel || "This estate")
+          + " maps to " + targets.map(function (t) { return t.label; }).join(", ") + ".";
+      } else {
+        mappingHint.textContent = "Select an example. The target list shows only what that estate is allowed to become.";
+      }
+    }
+  }
+
+  function select(path, langs, githubUrl, targets, platformLabel) {
+    selectedPath = path;
+    selectedLangs = langs;
+    pathInput.value = path;
+    githubUrlInput.value = githubUrl || "";
+    pathDisplay.textContent = path;
+    pathDisplay.classList.add("has-value");
+    renderLangs(langs);
+    applyTargets(targets || [], platformLabel);
+    updateSubmit();
+  }
+
+  function clearCardSelections() {
+    document.querySelectorAll(".demo-card.selected").forEach(function (el) { el.classList.remove("selected"); });
+    document.querySelectorAll(".demo-subfolder.selected").forEach(function (el) { el.classList.remove("selected"); });
+  }
+
+  function updateSubmit() {
+    var hasPath   = selectedPath && selectedPath.length > 0;
+    var hasTarget = targetSelect.value && targetSelect.value.length > 0;
+    submitBtn.disabled = !(hasPath && hasTarget);
+    submitBtn.classList.toggle("ready", hasPath && hasTarget);
+    submitBtn.textContent = (hasPath && hasTarget)
+      ? "Start analysis →"
+      : (!hasPath ? "Select an example to start →" : "Choose a target language →");
+  }
+
+  // ── Card factory (used for both static and dynamically-injected cards) ──────
+  function buildCard(ex) {
+    var card = document.createElement("div");
+    card.className = "demo-card";
+    card.dataset.path  = ex.path;
+    card.dataset.langs = JSON.stringify(ex.langs || []);
+    card.dataset.family = ex.family || "application";
+    card.dataset.platform = ex.platform || "";
+    card.dataset.platformLabel = ex.platform_label || "Application";
+    card.dataset.targets = JSON.stringify(ex.targets || []);
+
+    var html = "";
+    if (ex.platform_label) {
+      html += '<div class="demo-card-platform">' + _esc(ex.platform_label) + '</div>';
+    }
+    html += '<div class="demo-card-name">' + _esc(ex.name) + '</div>';
+    if (ex.maps_to) {
+      html += '<div class="demo-card-maps">Maps to ' + _esc(ex.maps_to) + '</div>';
+    }
+    html += '<div class="demo-card-langs">';
+    (ex.langs || []).slice(0, 4).forEach(function (l, i) {
+      html += '<span class="demo-lang-badge' + (i === 0 ? ' primary' : '') + '">'
+            + _esc(l.lang) + ' <span class="demo-card-count">' + l.count + '</span></span>';
+    });
+    if ((ex.langs || []).length === 0) {
+      html += '<span class="demo-lang-badge" style="color:var(--muted)">no source</span>';
+    }
+    html += '</div>';
+
+    if (ex.description) {
+      html += '<div class="demo-card-desc">' + _esc(ex.description) + '</div>';
+    }
+
+    if ((ex.subfolders || []).length > 0) {
+      html += '<div class="demo-subfolders"><div class="demo-subfolders-label">Subfolders</div>';
+      ex.subfolders.forEach(function (sub) {
+        html += '<div class="demo-subfolder" data-path="' + _esc(sub.path) + '" data-langs="'
+              + _esc(JSON.stringify(sub.langs || [])) + '">'
+              + '<span class="demo-sf-name">' + _esc(sub.name) + '</span>';
+        (sub.langs || []).slice(0, 2).forEach(function (l) {
+          html += '<span class="demo-lang-badge" style="font-size:0.6rem">' + _esc(l.lang) + '</span>';
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    card.innerHTML = html;
+    attachCardEvents(card);
+    return card;
+  }
+
+  function _esc(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function attachCardEvents(card) {
+    card.addEventListener("click", function (e) {
+      if (e.target.closest(".demo-subfolder")) return;
+      clearCardSelections();
+      card.classList.add("selected");
+      select(
+        card.dataset.path,
+        parseLangs(card.dataset.langs),
+        "",
+        parseTargets(card.dataset.targets),
+        card.dataset.platformLabel
+      );
+    });
+    card.querySelectorAll(".demo-subfolder").forEach(function (sf) {
+      sf.addEventListener("click", function (e) {
+        e.stopPropagation();
+        clearCardSelections();
+        card.classList.add("selected");
+        sf.classList.add("selected");
+        select(
+          sf.dataset.path,
+          parseLangs(sf.dataset.langs),
+          "",
+          parseTargets(card.dataset.targets),
+          card.dataset.platformLabel
+        );
+      });
+    });
+  }
+
+  // Attach events to server-rendered cards
+  document.querySelectorAll(".demo-card").forEach(attachCardEvents);
+
+  langInput.addEventListener("input", function () { langInput.dataset.userEdited = "1"; });
+  targetSelect.addEventListener("change", updateSubmit);
+
+  var demoAutoApproveToggle = document.getElementById("demo-auto-approve-input");
+  var demoAutoApproveName   = document.getElementById("demo-auto-approve-reviewer-name");
+  demoAutoApproveToggle.addEventListener("change", function () {
+    demoAutoApproveName.hidden = !demoAutoApproveToggle.checked;
+    demoAutoApproveName.required = demoAutoApproveToggle.checked;
+    if (!demoAutoApproveToggle.checked) demoAutoApproveName.value = "";
+  });
+
+  document.getElementById("demo-form").addEventListener("htmx:beforeRequest", function (e) {
+    if (!selectedPath) { e.preventDefault(); }
+  });
+
+  // ── Upload zone ──────────────────────────────────────────────────────────────
+  var uploadZone   = document.getElementById("demo-upload-zone");
+  var uploadInput  = document.getElementById("demo-upload-input");
+  var uploadStatus = document.getElementById("demo-upload-status");
+  var uploadBar    = document.getElementById("demo-upload-progress");
+
+  function setStatus(msg, cls) {
+    uploadStatus.textContent = msg;
+    uploadStatus.className = "demo-upload-status" + (cls ? " " + cls : "");
+  }
+
+  function setProgress(pct) {
+    uploadBar.style.width = pct + "%";
+  }
+
+  uploadZone.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    uploadZone.classList.add("drag-over");
+  });
+  uploadZone.addEventListener("dragleave", function () {
+    uploadZone.classList.remove("drag-over");
+  });
+  uploadZone.addEventListener("drop", function (e) {
+    e.preventDefault();
+    uploadZone.classList.remove("drag-over");
+    var file = e.dataTransfer.files[0];
+    if (file) doUpload(file);
+  });
+  uploadZone.addEventListener("click", function (e) {
+    if (e.target.tagName === "LABEL" || e.target.tagName === "INPUT") return;
+    uploadInput.click();
+  });
+  uploadInput.addEventListener("change", function () {
+    if (uploadInput.files[0]) doUpload(uploadInput.files[0]);
+    uploadInput.value = "";
+  });
+
+  function doUpload(file) {
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      setStatus("Only .zip files are accepted.", "error");
+      return;
+    }
+    if (file.size > 200 * 1024 * 1024) {
+      setStatus("File too large — max 200 MB.", "error");
+      return;
+    }
+
+    uploadZone.classList.add("uploading");
+    setStatus("Uploading…", "");
+    setProgress(10);
+
+    var fd = new FormData();
+    fd.append("file", file);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/demo/upload");
+
+    xhr.upload.addEventListener("progress", function (e) {
+      if (e.lengthComputable) setProgress(10 + Math.round(e.loaded / e.total * 70));
+    });
+
+    xhr.addEventListener("load", function () {
+      setProgress(90);
+      uploadZone.classList.remove("uploading");
+
+      if (xhr.status === 200) {
+        try {
+          var ex = JSON.parse(xhr.responseText);
+          setProgress(100);
+          setStatus("✓ " + ex.name + " added", "ok");
+
+          // Remove the "no examples" empty state if present
+          var slot = pickerFor(ex.family);
+          var empty = slot.querySelector(".demo-empty");
+          if (empty) empty.remove();
+
+          // Inject the new card at the top of its family and auto-select it
+          var card = buildCard(ex);
+          card.style.outline = "2px solid var(--accent)";
+          slot.prepend(card);
+
+          clearCardSelections();
+          card.classList.add("selected");
+          card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          select(ex.path, ex.langs || [], "", ex.targets || [], ex.platform_label || "");
+
+          setTimeout(function () { card.style.outline = ""; setProgress(0); }, 2000);
+        } catch (err) {
+          setStatus("Upload succeeded but response was unexpected.", "error");
+          setProgress(0);
+        }
+      } else {
+        var msg = "Upload failed";
+        try { msg = JSON.parse(xhr.responseText).detail || msg; } catch (_) {}
+        setStatus(msg, "error");
+        setProgress(0);
+      }
+    });
+
+    xhr.addEventListener("error", function () {
+      uploadZone.classList.remove("uploading");
+      setStatus("Network error — upload failed.", "error");
+      setProgress(0);
+    });
+
+    xhr.send(fd);
+  }
+
+  // ── GitHub URL box ──────────────────────────────────────────────────────────
+  var githubZone   = document.getElementById("demo-github-zone");
+  var githubInput  = document.getElementById("demo-github-input");
+  var githubBtn    = document.getElementById("demo-github-btn");
+  var githubStatus = document.getElementById("demo-github-status");
+  var githubBar    = document.getElementById("demo-github-progress");
+
+  function setGithubStatus(msg, cls) {
+    githubStatus.textContent = msg;
+    githubStatus.className = "demo-upload-status" + (cls ? " " + cls : "");
+  }
+
+  function setGithubProgress(pct) {
+    githubBar.style.width = pct + "%";
+  }
+
+  function doFetchGithub(url) {
+    if (!url) {
+      setGithubStatus("Paste a GitHub repository URL first.", "error");
+      return;
+    }
+
+    githubZone.classList.add("fetching");
+    setGithubStatus("Fetching…", "");
+    setGithubProgress(20);
+
+    var fd = new FormData();
+    fd.append("github_url", url);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/demo/fetch-github");
+
+    xhr.addEventListener("load", function () {
+      setGithubProgress(90);
+      githubZone.classList.remove("fetching");
+
+      if (xhr.status === 200) {
+        try {
+          var ex = JSON.parse(xhr.responseText);
+          setGithubProgress(100);
+          setGithubStatus("✓ " + ex.name + " added", "ok");
+
+          var slot = pickerFor(ex.family);
+          var empty = slot.querySelector(".demo-empty");
+          if (empty) empty.remove();
+
+          var card = buildCard(ex);
+          card.style.outline = "2px solid var(--accent)";
+          slot.prepend(card);
+
+          clearCardSelections();
+          card.classList.add("selected");
+          card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          select(ex.path, ex.langs || [], ex.github_url || "", ex.targets || [], ex.platform_label || "");
+
+          setTimeout(function () { card.style.outline = ""; setGithubProgress(0); }, 2000);
+        } catch (err) {
+          setGithubStatus("Fetch succeeded but response was unexpected.", "error");
+          setGithubProgress(0);
+        }
+      } else {
+        var msg = "Fetch failed";
+        try { msg = JSON.parse(xhr.responseText).detail || msg; } catch (_) {}
+        setGithubStatus(msg, "error");
+        setGithubProgress(0);
+      }
+    });
+
+    xhr.addEventListener("error", function () {
+      githubZone.classList.remove("fetching");
+      setGithubStatus("Network error — fetch failed.", "error");
+      setGithubProgress(0);
+    });
+
+    xhr.send(fd);
+  }
+
+  githubBtn.addEventListener("click", function () { doFetchGithub(githubInput.value.trim()); });
+  githubInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); doFetchGithub(githubInput.value.trim()); }
+  });
+})();
+</script>
+{% endblock %}

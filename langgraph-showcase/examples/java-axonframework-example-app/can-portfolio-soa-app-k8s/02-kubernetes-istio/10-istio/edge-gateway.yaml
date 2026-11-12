@@ -1,0 +1,106 @@
+###############################################################################
+# Edge Gateway + VirtualService - terminates TLS, enforces JWT validation
+# (Azure AD), routes to internal services. The API Gateway role described in
+# the SAD's "API Management" component is realised here in-mesh.
+###############################################################################
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: can-edge
+  namespace: istio-ingress
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "app.example.com"
+        - "api.example.com"
+      tls:
+        mode: SIMPLE
+        credentialName: can-edge-tls
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "app.example.com"
+        - "api.example.com"
+      tls:
+        httpsRedirect: true
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: can-edge-routes
+  namespace: istio-ingress
+spec:
+  hosts:
+    - "app.example.com"
+    - "api.example.com"
+  gateways:
+    - can-edge
+  http:
+    # Static UI shell.
+    - match:
+        - uri: { prefix: "/static/" }
+        - uri: { prefix: "/assets/" }
+      route:
+        - destination:
+            host: webapp-ui.can-app.svc.cluster.local
+            port: { number: 80 }
+    # API for the BFF.
+    - match:
+        - uri: { prefix: "/api/" }
+      route:
+        - destination:
+            host: webapp-bff.can-app.svc.cluster.local
+            port: { number: 8080 }
+      timeout: 30s
+      retries:
+        attempts: 2
+        perTryTimeout: 10s
+        retryOn: gateway-error,connect-failure,refused-stream,5xx
+    # Default to the UI.
+    - route:
+        - destination:
+            host: webapp-ui.can-app.svc.cluster.local
+            port: { number: 80 }
+---
+# JWT validation at the edge - delegates auth to Azure AD per the SAD.
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: edge-jwt
+  namespace: istio-ingress
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  jwtRules:
+    - issuer: "https://login.microsoftonline.com/<TENANT_ID>/v2.0"
+      jwksUri: "https://login.microsoftonline.com/<TENANT_ID>/discovery/v2.0/keys"
+      audiences:
+        - "api://can-prod-uks"
+      forwardOriginalToken: true
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: edge-require-jwt-on-api
+  namespace: istio-ingress
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  action: DENY
+  rules:
+    - to:
+        - operation:
+            paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[iss]
+          notValues: ["https://login.microsoftonline.com/<TENANT_ID>/v2.0"]

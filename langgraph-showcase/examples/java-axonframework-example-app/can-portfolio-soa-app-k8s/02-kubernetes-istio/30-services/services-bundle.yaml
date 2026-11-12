@@ -1,0 +1,210 @@
+###############################################################################
+# Microservices - User Auth, Property/Allocation/Valuation, VDR Ingestion,
+# Workflow, Search. Each is a Spring Boot/Axon service. Pattern is identical
+# to webapp-bff (see that file for the canonical comments); only the deltas
+# in image, env vars, and AuthorizationPolicy are encoded here for brevity.
+###############################################################################
+# user-auth
+---
+apiVersion: v1
+kind: Service
+metadata: { name: user-auth, namespace: can-app, labels: { app: user-auth } }
+spec:
+  selector: { app: user-auth }
+  ports: [{ name: http, port: 8080 }, { name: mgmt, port: 8081 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: user-auth, namespace: can-app, labels: { app: user-auth } }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: user-auth } }
+  template:
+    metadata:
+      labels: { app: user-auth, version: v1 }
+      annotations: { sidecar.istio.io/inject: "true" }
+    spec:
+      serviceAccountName: can-workload-sa
+      containers:
+        - name: app
+          image: <ACR_LOGIN_SERVER>/can/user-auth:1.0.0
+          ports: [{ name: http, containerPort: 8080 }, { name: mgmt, containerPort: 8081 }]
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: "k8s" }
+            - { name: AXON_AXONSERVER_SERVERS, value: "axonserver.can-system.svc.cluster.local:8124" }
+            - { name: SPRING_DATASOURCE_URL, value: "jdbc:postgresql://<PG_FQDN>:5432/can_app?sslmode=require&currentSchema=user_mgmt" }
+            - { name: SPRING_DATASOURCE_USERNAME, value: "canadmin" }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom: { secretKeyRef: { name: pg-credentials, key: password } }
+          resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { cpu: 1, memory: 1Gi } }
+          readinessProbe: { httpGet: { path: /actuator/health/readiness, port: mgmt } }
+          livenessProbe:  { httpGet: { path: /actuator/health/liveness,  port: mgmt }, initialDelaySeconds: 30 }
+---
+# property-allocation
+apiVersion: v1
+kind: Service
+metadata: { name: property-allocation, namespace: can-app, labels: { app: property-allocation } }
+spec:
+  selector: { app: property-allocation }
+  ports: [{ name: http, port: 8080 }, { name: mgmt, port: 8081 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: property-allocation, namespace: can-app, labels: { app: property-allocation } }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: property-allocation } }
+  template:
+    metadata:
+      labels: { app: property-allocation, version: v1 }
+      annotations: { sidecar.istio.io/inject: "true" }
+    spec:
+      serviceAccountName: can-workload-sa
+      containers:
+        - name: app
+          image: <ACR_LOGIN_SERVER>/can/property-allocation:1.0.0
+          ports: [{ name: http, containerPort: 8080 }, { name: mgmt, containerPort: 8081 }]
+          env:
+            - { name: AXON_AXONSERVER_SERVERS, value: "axonserver.can-system.svc.cluster.local:8124" }
+            - { name: SPRING_DATASOURCE_URL, value: "jdbc:postgresql://<PG_FQDN>:5432/can_app?sslmode=require&currentSchema=portfolio" }
+            - { name: SPRING_DATASOURCE_USERNAME, value: "canadmin" }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom: { secretKeyRef: { name: pg-credentials, key: password } }
+            - { name: NATS_URL, value: "nats://nats.can-system.svc.cluster.local:4222" }
+          resources: { requests: { cpu: 500m, memory: 1Gi }, limits: { cpu: 2, memory: 2Gi } }
+          readinessProbe: { httpGet: { path: /actuator/health/readiness, port: mgmt } }
+          livenessProbe:  { httpGet: { path: /actuator/health/liveness,  port: mgmt }, initialDelaySeconds: 30 }
+---
+# vdr-ingestion - long-running ETL with bigger memory budget for Apache Tika.
+apiVersion: v1
+kind: Service
+metadata: { name: vdr-ingestion, namespace: can-app, labels: { app: vdr-ingestion } }
+spec:
+  selector: { app: vdr-ingestion }
+  ports: [{ name: http, port: 8080 }, { name: mgmt, port: 8081 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: vdr-ingestion, namespace: can-app, labels: { app: vdr-ingestion } }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: vdr-ingestion } }
+  template:
+    metadata:
+      labels: { app: vdr-ingestion, version: v1 }
+      annotations: { sidecar.istio.io/inject: "true" }
+    spec:
+      serviceAccountName: can-workload-sa
+      containers:
+        - name: app
+          image: <ACR_LOGIN_SERVER>/can/vdr-ingestion:1.0.0
+          ports: [{ name: http, containerPort: 8080 }, { name: mgmt, containerPort: 8081 }]
+          env:
+            - { name: AXON_AXONSERVER_SERVERS, value: "axonserver.can-system.svc.cluster.local:8124" }
+            - { name: SPRING_DATASOURCE_URL, value: "jdbc:postgresql://<PG_FQDN>:5432/can_app?sslmode=require&currentSchema=vdr" }
+            - { name: SPRING_DATASOURCE_USERNAME, value: "canadmin" }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom: { secretKeyRef: { name: pg-credentials, key: password } }
+            - { name: BLOB_STORAGE_ACCOUNT, value: "<STORAGE_ACCOUNT_NAME>" }
+            - { name: BLOB_CONTAINER_RAW,   value: "vdr-raw" }
+            - { name: BLOB_CONTAINER_CLEAN, value: "vdr-clean" }
+            - { name: NATS_URL, value: "nats://nats.can-system.svc.cluster.local:4222" }
+          resources: { requests: { cpu: 500m, memory: 2Gi }, limits: { cpu: 2, memory: 4Gi } }
+          readinessProbe: { httpGet: { path: /actuator/health/readiness, port: mgmt } }
+          livenessProbe:  { httpGet: { path: /actuator/health/liveness,  port: mgmt }, initialDelaySeconds: 60 }
+---
+# workflow (Axon orchestration aggregate)
+apiVersion: v1
+kind: Service
+metadata: { name: workflow, namespace: can-app, labels: { app: workflow } }
+spec:
+  selector: { app: workflow }
+  ports: [{ name: http, port: 8080 }, { name: mgmt, port: 8081 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: workflow, namespace: can-app, labels: { app: workflow } }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: workflow } }
+  template:
+    metadata:
+      labels: { app: workflow, version: v1 }
+      annotations: { sidecar.istio.io/inject: "true" }
+    spec:
+      serviceAccountName: can-workload-sa
+      containers:
+        - name: app
+          image: <ACR_LOGIN_SERVER>/can/workflow:1.0.0
+          ports: [{ name: http, containerPort: 8080 }, { name: mgmt, containerPort: 8081 }]
+          env:
+            - { name: AXON_AXONSERVER_SERVERS, value: "axonserver.can-system.svc.cluster.local:8124" }
+            - { name: NATS_URL, value: "nats://nats.can-system.svc.cluster.local:4222" }
+          resources: { requests: { cpu: 250m, memory: 768Mi }, limits: { cpu: 1, memory: 1.5Gi } }
+          readinessProbe: { httpGet: { path: /actuator/health/readiness, port: mgmt } }
+          livenessProbe:  { httpGet: { path: /actuator/health/liveness,  port: mgmt }, initialDelaySeconds: 30 }
+---
+# search
+apiVersion: v1
+kind: Service
+metadata: { name: search, namespace: can-app, labels: { app: search } }
+spec:
+  selector: { app: search }
+  ports: [{ name: http, port: 8080 }, { name: mgmt, port: 8081 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: search, namespace: can-app, labels: { app: search } }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: search } }
+  template:
+    metadata:
+      labels: { app: search, version: v1 }
+      annotations: { sidecar.istio.io/inject: "true" }
+    spec:
+      serviceAccountName: can-workload-sa
+      containers:
+        - name: app
+          image: <ACR_LOGIN_SERVER>/can/search:1.0.0
+          ports: [{ name: http, containerPort: 8080 }, { name: mgmt, containerPort: 8081 }]
+          env:
+            - { name: SPRING_DATASOURCE_URL, value: "jdbc:postgresql://<PG_FQDN>:5432/can_app?sslmode=require" }
+            - { name: SPRING_DATASOURCE_USERNAME, value: "canadmin" }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom: { secretKeyRef: { name: pg-credentials, key: password } }
+          resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { cpu: 1, memory: 1Gi } }
+          readinessProbe: { httpGet: { path: /actuator/health/readiness, port: mgmt } }
+          livenessProbe:  { httpGet: { path: /actuator/health/liveness,  port: mgmt }, initialDelaySeconds: 30 }
+---
+# webapp-ui (React/TS static bundle served by nginx)
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: webapp-ui, namespace: can-app }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: webapp-ui, namespace: can-app, labels: { app: webapp-ui } }
+spec:
+  selector: { app: webapp-ui }
+  ports: [{ name: http, port: 80, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: webapp-ui, namespace: can-app, labels: { app: webapp-ui } }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: webapp-ui } }
+  template:
+    metadata:
+      labels: { app: webapp-ui, version: v1 }
+      annotations: { sidecar.istio.io/inject: "true" }
+    spec:
+      serviceAccountName: webapp-ui
+      containers:
+        - name: app
+          image: <ACR_LOGIN_SERVER>/can/webapp-ui:1.0.0
+          ports: [{ name: http, containerPort: 8080 }]
+          resources: { requests: { cpu: 50m, memory: 64Mi }, limits: { cpu: 200m, memory: 128Mi } }
+          readinessProbe: { httpGet: { path: /healthz, port: http } }
+          livenessProbe:  { httpGet: { path: /healthz, port: http } }

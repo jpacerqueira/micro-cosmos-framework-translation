@@ -1,0 +1,75 @@
+###############################################################################
+# Istio control plane - production profile with mTLS STRICT and zone-aware
+# locality LB. Install order: base -> istiod -> ingress gateway.
+###############################################################################
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: can-istiocontrolplane
+  namespace: istio-system
+spec:
+  profile: default
+  meshConfig:
+    accessLogFile: /dev/stdout
+    accessLogEncoding: JSON
+    enableTracing: true
+    defaultConfig:
+      tracing:
+        sampling: 10.0
+      proxyMetadata:
+        ISTIO_META_DNS_CAPTURE: "true"
+        ISTIO_META_DNS_AUTO_ALLOCATE: "true"
+    extensionProviders:
+      - name: otel
+        envoyOtelAls:
+          service: opentelemetry-collector.observability.svc.cluster.local
+          port: 4317
+      - name: zipkin
+        zipkin:
+          service: zipkin.observability.svc.cluster.local
+          port: 9411
+  values:
+    pilot:
+      autoscaleEnabled: true
+      autoscaleMin: 2
+      autoscaleMax: 5
+      resources:
+        requests:
+          cpu: 500m
+          memory: 2Gi
+    global:
+      proxy:
+        autoInject: enabled
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+      logging:
+        level: "default:info"
+  components:
+    pilot:
+      k8s:
+        hpaSpec:
+          minReplicas: 2
+          maxReplicas: 5
+        nodeSelector:
+          kubernetes.io/os: linux
+    ingressGateways:
+      - name: istio-ingressgateway
+        namespace: istio-ingress
+        enabled: true
+        k8s:
+          service:
+            type: LoadBalancer
+            annotations:
+              service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+              service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz/ready
+          hpaSpec:
+            minReplicas: 2
+            maxReplicas: 5
+          podAnnotations:
+            proxy.istio.io/config: |
+              terminationDrainDuration: 30s

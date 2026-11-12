@@ -1,0 +1,21 @@
+{
+  "name": "trigger_branded_daily",
+  "properties": {
+    "type": "ScheduleTrigger",
+    "description": "Branded REPLACE write-back — runs daily at 04:00 UTC (after BIS completes)",
+    "typeProperties": {
+      "recurrence": {
+        "frequency": "Day",
+        "interval": 1,
+        "schedule": {
+          "hours": [4],
+          "minutes": [0]
+        },
+        "timeZone": "UTC"
+      }
+    },
+    "pipelines": [
+      {"pipelineReference": {"type": "PipelineReference", "referenceName": "BrandedReplaceETL"}}
+    ]
+  }
+}

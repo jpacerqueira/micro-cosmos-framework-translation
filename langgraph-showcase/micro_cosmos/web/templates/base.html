@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Micro-Cosmos{% endblock %}</title>
+  <link rel="stylesheet" href="{{ static_url('css/app.css') }}">
+  <script src="{{ static_url('vendor/htmx.min.js') }}"></script>
+  <script src="{{ static_url('js/run-confirm.js') }}"></script>
+  <script src="{{ static_url('vendor/htmx-ext-ws.js') }}"></script>
+  <script src="{{ static_url('vendor/cytoscape.min.js') }}"></script>
+  <script src="{{ static_url('vendor/dagre.min.js') }}"></script>
+  <script src="{{ static_url('vendor/cytoscape-dagre.js') }}"></script>
+  <script src="{{ static_url('vendor/cytoscape-fcose.js') }}"></script>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark"></span>
+      <span class="name">Micro-Cosmos</span>
+    </div>
+    <nav>
+      <label class="debug-toggle" title="Show diagnostic warnings, errors, and debug events">
+        <input type="checkbox" id="debug-toggle">
+        <span>Debug</span>
+      </label>
+      <a href="/">New run</a>
+      <a href="/logout">Logout</a>
+    </nav>
+  </header>
+  <main>
+    {% block body %}{% endblock %}
+  </main>
+  <script>
+    (function () {
+      const KEY = "source:debug";
+      const cb = document.getElementById("debug-toggle");
+      const apply = (on) => {
+        document.body.dataset.debug = on ? "on" : "off";
+        document.dispatchEvent(new CustomEvent("source:debug-toggle", { detail: { on } }));
+      };
+      const initial = localStorage.getItem(KEY) === "1";
+      if (cb) cb.checked = initial;
+      apply(initial);
+      if (cb) {
+        cb.addEventListener("change", () => {
+          localStorage.setItem(KEY, cb.checked ? "1" : "0");
+          apply(cb.checked);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

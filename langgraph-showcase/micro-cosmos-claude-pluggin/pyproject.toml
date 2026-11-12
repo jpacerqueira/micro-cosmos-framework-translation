@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "micro-cosmos-claude-pluggin"
+version = "1.0.0"
+description = "Micro-Cosmos Claude plugin. Deterministic and LLM framework translation."
+requires-python = ">=3.10,<3.15"
+license = { text = "MIT" }
+dependencies = [
+    "langgraph>=1.0",
+    "litellm>=1.40.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "networkx>=3.2",
+    "numpy>=1.26",
+    "tree-sitter>=0.23",
+    "tree-sitter-c>=0.23",
+    "httpx>=0.27",
+    "toons>=0.1",
+]
+
+[tool.setuptools.packages.find]
+include = ["micro_cosmos*"]

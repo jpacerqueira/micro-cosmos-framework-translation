@@ -1,0 +1,25 @@
+-- =============================================================================
+-- NatWest Fraud Detection - Account Master Table
+-- SQL Server 2008 R2 Compatible DDL
+-- =============================================================================
+
+IF OBJECT_ID('dbo.ACCOUNT_MASTER', 'U') IS NOT NULL
+    DROP TABLE dbo.ACCOUNT_MASTER;
+
+CREATE TABLE dbo.ACCOUNT_MASTER (
+    ACCT_NO          CHAR(10)      NOT NULL,
+    CUST_ID          VARCHAR(20)   NOT NULL,
+    CUST_FULL_NAME   NVARCHAR(100) NOT NULL,
+    ACCT_STATUS      CHAR(1)       NOT NULL
+        CONSTRAINT CHK_ACCT_STATUS CHECK (ACCT_STATUS IN ('A','F','C')),
+    ACCT_TYPE        CHAR(2)       NOT NULL
+        CONSTRAINT CHK_ACCT_TYPE  CHECK (ACCT_TYPE IN ('CH','SV','CR')),
+    HOME_COUNTRY     CHAR(3)       NOT NULL,
+    DAILY_TXN_COUNT  INT           NOT NULL CONSTRAINT DF_ACCT_DAILY_COUNT DEFAULT 0,
+    LAST_VELOCITY_TS DATETIME      NULL,
+    LAST_UPDATE_TS   DATETIME      NOT NULL CONSTRAINT DF_ACCT_UPDATE_TS DEFAULT GETDATE(),
+    CONSTRAINT PK_ACCOUNT_MASTER PRIMARY KEY (ACCT_NO)
+);
+
+CREATE INDEX IX_ACCT_CUST_ID ON dbo.ACCOUNT_MASTER (CUST_ID);
+CREATE INDEX IX_ACCT_STATUS  ON dbo.ACCOUNT_MASTER (ACCT_STATUS);

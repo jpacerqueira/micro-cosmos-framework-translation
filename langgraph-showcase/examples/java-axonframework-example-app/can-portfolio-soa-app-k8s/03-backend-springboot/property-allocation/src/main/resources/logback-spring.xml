@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  JSON logs to stdout. Implements the SAD's "Structure Your Log Data" and
+  "Send all logs to a centralised location" patterns. The Azure Monitor
+  agent collects stdout, parses JSON, and surfaces fields as columns.
+-->
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>timestamp</fieldName>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+                </timestamp>
+                <logLevel><fieldName>level</fieldName></logLevel>
+                <loggerName><fieldName>logger</fieldName></loggerName>
+                <threadName><fieldName>thread</fieldName></threadName>
+                <message><fieldName>message</fieldName></message>
+                <stackTrace><fieldName>stack</fieldName></stackTrace>
+                <mdc/>
+                <pattern>
+                    <pattern>
+                        {
+                          "service": "${SPRING_APPLICATION_NAME:-unknown}",
+                          "environment": "${ENVIRONMENT:-dev}",
+                          "version": "${APP_VERSION:-unknown}"
+                        }
+                    </pattern>
+                </pattern>
+            </providers>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+    <logger name="com.customer.can" level="DEBUG"/>
+    <logger name="org.axonframework" level="INFO"/>
+    <logger name="org.springframework.security" level="INFO"/>
+</configuration>

@@ -1,0 +1,147 @@
+{
+    "name": "MainETLPipeline",
+    "properties": {
+        "description": "Main ETL pipeline — orchestrates bronze→silver→gold for BIS product star schema and customer transactions.",
+        "activities": [
+            {
+                "name": "IngestCustomerTransactions",
+                "type": "DatabricksNotebook",
+                "dependsOn": [],
+                "typeProperties": {
+                    "notebookPath": "/Repos/retail-platform/notebooks/03_etl_jobs/RunETLPipeline",
+                    "baseParameters": {
+                        "table_name": "customer_transactions",
+                        "run_mode": "full",
+                        "config_path": "/Workspace/Repos/retail-platform/src/etl_jobs/config/etl_config.json"
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "DatabricksLinkedService",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "IngestProductInventory",
+                "type": "DatabricksNotebook",
+                "dependsOn": [],
+                "typeProperties": {
+                    "notebookPath": "/Repos/retail-platform/notebooks/03_etl_jobs/RunETLPipeline",
+                    "baseParameters": {
+                        "table_name": "product_inventory",
+                        "run_mode": "full",
+                        "config_path": "/Workspace/Repos/retail-platform/src/etl_jobs/config/etl_config.json"
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "DatabricksLinkedService",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "IngestNmItemSupplier",
+                "type": "DatabricksNotebook",
+                "dependsOn": [],
+                "typeProperties": {
+                    "notebookPath": "/Repos/retail-platform/notebooks/03_etl_jobs/RunETLPipeline",
+                    "baseParameters": {
+                        "table_name": "nm_item_supplier",
+                        "run_mode": "full",
+                        "config_path": "/Workspace/Repos/retail-platform/src/etl_jobs/config/etl_config.json"
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "DatabricksLinkedService",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "IngestItemSeason",
+                "type": "DatabricksSparkPython",
+                "dependsOn": [
+                    {
+                        "activity": "IngestNmItemSupplier",
+                        "dependencyConditions": ["Succeeded"]
+                    }
+                ],
+                "typeProperties": {
+                    "pythonFile": "dbfs:/FileStore/scripts/ingest_item_season.py",
+                    "parameters": [
+                        "--table", "item_season",
+                        "--source", "/mnt/raw/product_systems_raw/item_season/"
+                    ]
+                },
+                "linkedServiceName": {
+                    "referenceName": "DatabricksLinkedService",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "IngestFactSalesOrders",
+                "type": "DatabricksNotebook",
+                "dependsOn": [
+                    {
+                        "activity": "IngestItemSeason",
+                        "dependencyConditions": ["Succeeded"]
+                    }
+                ],
+                "typeProperties": {
+                    "notebookPath": "/Repos/retail-platform/notebooks/03_etl_jobs/RunETLPipeline",
+                    "baseParameters": {
+                        "table_name": "fact_sales_orders",
+                        "run_mode": "full",
+                        "config_path": "/Workspace/Repos/retail-platform/src/etl_jobs/config/etl_config.json"
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "DatabricksLinkedService",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "RunBISAnalytics",
+                "type": "DatabricksNotebook",
+                "dependsOn": [
+                    {
+                        "activity": "IngestFactSalesOrders",
+                        "dependencyConditions": ["Succeeded"]
+                    },
+                    {
+                        "activity": "IngestProductInventory",
+                        "dependencyConditions": ["Succeeded"]
+                    },
+                    {
+                        "activity": "IngestCustomerTransactions",
+                        "dependencyConditions": ["Succeeded"]
+                    }
+                ],
+                "typeProperties": {
+                    "notebookPath": "/Repos/retail-platform/notebooks/04_bis_analytics/BISAnalytics",
+                    "baseParameters": {
+                        "season_code": "AW24",
+                        "output_mode": "overwrite"
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "DatabricksLinkedService",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "RunPaymentDiagnostics",
+                "type": "DatabricksNotebook",
+                "dependsOn": [],
+                "typeProperties": {
+                    "notebookPath": "/Repos/retail-platform/notebooks/05_payment_diagnostics/PaymentDiagnostics",
+                    "baseParameters": {
+                        "provider": "all",
+                        "output_mode": "overwrite"
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "DatabricksLinkedService",
+                    "type": "LinkedServiceReference"
+                }
+            }
+        ]
+    }
+}

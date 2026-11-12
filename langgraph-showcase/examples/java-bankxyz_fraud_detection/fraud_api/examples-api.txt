@@ -1,0 +1,247 @@
+================================================================================
+  BankXYZ Fraud Detection API — cURL Examples
+  Base URL: http://localhost:8080
+================================================================================
+
+All examples assume the stack is running locally:
+  docker-compose up -d
+  (wait ~3 min on first boot for Oracle schema initialisation)
+
+--------------------------------------------------------------------------------
+1. POST /api/v1/authorise — Real-time fraud scoring
+--------------------------------------------------------------------------------
+
+--- 1a. Low-risk domestic purchase → expected APPROVE (score < 0.75) -----------
+
+curl -s -X POST http://localhost:8080/api/v1/authorise \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txnId":        "TXN0000000000001",
+    "acctNo":       "ACC0000001",
+    "txnAmount":    45.00,
+    "merchantCode": "TESCO001",
+    "channel":      "ONLINE",
+    "txnCountry":   "GBR",
+    "cardType":     "DB",
+    "cnpFlag":      true
+  }'
+
+Expected response:
+{
+  "txnId":      "TXN0000000000001",
+  "decision":   "APPROVE",
+  "returnCode": "00",
+  "fraudScore": 0.1250,
+  "message":    "Transaction approved",
+  "elapsedMs":  42
+}
+
+--- 1b. High-amount international credit card → expected REVIEW (0.75–0.90) ----
+
+curl -s -X POST http://localhost:8080/api/v1/authorise \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txnId":        "TXN0000000000002",
+    "acctNo":       "ACC0000002",
+    "txnAmount":    6500.00,
+    "merchantCode": "FOREX999",
+    "channel":      "ONLINE",
+    "txnCountry":   "USA",
+    "cardType":     "CR",
+    "cnpFlag":      true
+  }'
+
+Expected response:
+{
+  "txnId":      "TXN0000000000002",
+  "decision":   "REVIEW",
+  "returnCode": "20",
+  "fraudScore": 0.8100,
+  "message":    "Transaction flagged for review",
+  "elapsedMs":  67
+}
+
+Note: When REVIEW or DECLINE is returned, a FraudAlert is created in PENDING state
+and a JMS message is enqueued to FRAUD.ALERT.QUEUE (ActiveMQ).
+
+--- 1c. Blocked merchant + watchlisted account → expected DECLINE (score >= 0.90)
+
+curl -s -X POST http://localhost:8080/api/v1/authorise \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txnId":        "TXN0000000000003",
+    "acctNo":       "ACC0000003",
+    "txnAmount":    9999.99,
+    "merchantCode": "BLCKM001",
+    "channel":      "ATM",
+    "txnCountry":   "RUS",
+    "cardType":     "CR",
+    "cnpFlag":      false
+  }'
+
+Expected response:
+{
+  "txnId":      "TXN0000000000003",
+  "decision":   "DECLINE",
+  "returnCode": "10",
+  "fraudScore": 0.9450,
+  "message":    "Transaction declined — high fraud risk",
+  "elapsedMs":  55
+}
+
+--- 1d. CHIPPIN channel — profile weight is zeroed (BAU-2021-09 exemption) ------
+
+curl -s -X POST http://localhost:8080/api/v1/authorise \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txnId":        "TXN0000000000004",
+    "acctNo":       "ACC0000004",
+    "txnAmount":    12.50,
+    "merchantCode": "CAFEBAR1",
+    "channel":      "CHIPPIN",
+    "txnCountry":   "GBR",
+    "cardType":     "DB",
+    "cnpFlag":      false
+  }'
+
+Expected response:
+{
+  "txnId":      "TXN0000000000004",
+  "decision":   "APPROVE",
+  "returnCode": "00",
+  "fraudScore": 0.0500,
+  "message":    "Transaction approved",
+  "elapsedMs":  38
+}
+
+Note: The profile-deviation signal (weight 0.20) is skipped entirely for CHIPPIN
+transactions per BAU exemption BAU-2021-09.
+
+--- 1e. Frozen account → forced DECLINE (score overridden to 1.0) ---------------
+
+curl -s -X POST http://localhost:8080/api/v1/authorise \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txnId":        "TXN0000000000005",
+    "acctNo":       "FROZENACCT",
+    "txnAmount":    1.00,
+    "merchantCode": "TESCO001",
+    "channel":      "ONLINE",
+    "txnCountry":   "GBR",
+    "cardType":     "DB",
+    "cnpFlag":      false
+  }'
+
+Expected response:
+{
+  "txnId":      "TXN0000000000005",
+  "decision":   "DECLINE",
+  "returnCode": "10",
+  "fraudScore": 1.0000,
+  "message":    "Transaction declined — high fraud risk",
+  "elapsedMs":  12
+}
+
+Note: Account status FROZEN or CLOSED forces composite score to 1.0 regardless of
+any other signal. Same behaviour applies to CLOSED accounts.
+
+--- 1f. Minimal required fields only (optional fields omitted) ------------------
+
+curl -s -X POST http://localhost:8080/api/v1/authorise \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txnId":     "TXN0000000000006",
+    "acctNo":    "ACC0000001",
+    "txnAmount": 20.00
+  }'
+
+Note: merchantCode, channel, txnCountry, cardType, cnpFlag are optional.
+Omitted fields default to null/false; unknown merchant code scores 0.0,
+null channel maps to UNKNOWN internally.
+
+--------------------------------------------------------------------------------
+2. POST /api/v1/batch/run — Manual batch trigger
+--------------------------------------------------------------------------------
+
+Triggers the nightly scoring batch job (mirrors JCL FDBATCH01).
+Under normal operations this runs automatically at 02:00 via cron.
+Use this endpoint for testing or operational recovery only.
+
+curl -s -X POST http://localhost:8080/api/v1/batch/run
+
+Expected response (HTTP 200, plain text):
+  Batch job submitted
+
+Expected response on error (HTTP 500, plain text):
+  Batch launch failed: <reason>
+
+Job configuration (from application.properties):
+  - Chunk size:        100 transactions per chunk
+  - Max transactions:  500 per run
+  - Cron schedule:     0 0 2 * * ?  (nightly 02:00)
+  - Batch metadata DB: H2 in-memory (separate from fraud data Oracle schema)
+
+--------------------------------------------------------------------------------
+3. Actuator health check
+--------------------------------------------------------------------------------
+
+Confirms all three tiers are up (Oracle DB, ActiveMQ JMS, application).
+
+curl -s http://localhost:8080/actuator/health | python3 -m json.tool
+
+Expected response:
+{
+  "status": "UP",
+  "components": {
+    "db":        { "status": "UP", "details": { "database": "Oracle" } },
+    "jms":       { "status": "UP", "details": { "provider": "ActiveMQ" } },
+    "diskSpace": { "status": "UP" },
+    "ping":      { "status": "UP" }
+  }
+}
+
+--------------------------------------------------------------------------------
+4. Decision logic reference
+--------------------------------------------------------------------------------
+
+Score thresholds (fraud.scoring.* in application.properties):
+  APPROVE  : score < 0.7500
+  REVIEW   : 0.7500 <= score < 0.9000   (alert created, transaction allowed)
+  DECLINE  : score >= 0.9000             (alert created, transaction blocked)
+  SLA      : elapsed > 180 ms → APPROVE regardless of score
+
+Return codes (mirrors original CICS RETURN-CODE field):
+  "00"  APPROVE
+  "20"  REVIEW
+  "10"  DECLINE
+
+Scoring signal weights:
+  Amount deviation    0.25   (high/med/low amount limits: 5000 / 1000 / 200)
+  Merchant risk       0.25   (HIGH=0.80, MED=0.40, LOW=0.10, BLOCKED=1.0)
+  Velocity            0.20   (realtime limit: 5 txns; batch limit: 10 txns)
+  Customer profile    0.20   (amount, geolocation, time-of-day deviation)
+  Watchlist screening 0.10   (OFAC/PEP name + account matching)
+
+Channel special cases:
+  CHIPPIN  → profile weight (0.20) zeroed; other four signals apply normally
+  UNKNOWN  → treated same as any standard channel; no special scoring
+
+Account status overrides:
+  FROZEN (F) → composite score forced to 1.0 → DECLINE
+  CLOSED (C) → composite score forced to 1.0 → DECLINE
+  ACTIVE (A) → normal scoring applies
+
+--------------------------------------------------------------------------------
+5. ActiveMQ console (monitoring alert queue)
+--------------------------------------------------------------------------------
+
+Alerts and DECLINE/REVIEW decisions are enqueued to FRAUD.ALERT.QUEUE.
+
+Web console: http://localhost:8161
+Credentials: admin / admin
+
+Browse the queue:
+  http://localhost:8161/admin/browse.jsp?JMSDestination=FRAUD.ALERT.QUEUE
+
+--------------------------------------------------------------------------------
+EOF

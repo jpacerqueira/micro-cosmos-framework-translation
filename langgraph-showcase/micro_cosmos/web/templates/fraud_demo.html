@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}BankXYZ · Fraud Detection Modernisation{% endblock %}
+{% block body %}
+
+<section class="hero">
+  <p class="classification">BankXYZ · Legacy Modernisation · PoC</p>
+  <h1>Fraud Detection — legacy analysis</h1>
+  <p class="lede">
+    Five COBOL programs running on IBM z/OS are fed into the Micro-Cosmos
+    pipeline. Three agents — Observer, Cartographer, Architect — map the
+    estate end-to-end. A human reviewer approves each phase before the
+    next begins.
+  </p>
+</section>
+
+<section class="explainer">
+  <h2>Source estate</h2>
+  <p style="color:var(--muted); font-size:0.85rem; margin-bottom:1.2rem;">
+    IBM z/OS · COBOL/370 · CICS Transaction Server 5.6 · Db2 for z/OS
+  </p>
+
+  <table class="demo-table">
+    <thead>
+      <tr>
+        <th>Program</th>
+        <th>Role</th>
+        <th>Known issues</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>FDTXNMON</code></td>
+        <td>Batch entry point — reads pending transactions and drives the pipeline</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><code>FDRULES</code></td>
+        <td>Rules engine — combines amount, merchant, and velocity signals into a fraud score</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><code>FDVELCHK</code></td>
+        <td>Velocity checker — counts recent transactions per account</td>
+        <td class="warn-text">SQL_IN_LOOP — one query per account instead of a batch</td>
+      </tr>
+      <tr>
+        <td><code>FDALERT</code></td>
+        <td>Alert writer — inserts fraud alerts into Db2 and notifies the case team</td>
+        <td class="warn-text">Dead VSAM write path — decommissioned 2022, never removed</td>
+      </tr>
+      <tr>
+        <td><code>FDARCHIVE</code></td>
+        <td>Case archiver — flat-file archive replaced by central case management</td>
+        <td class="dead-text">Dead code — no program in this estate calls FDARCHIVE</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="explainer">
+  <h2>What the pipeline produces</h2>
+  <ol>
+    <li>
+      <strong>IR property graph</strong> — every program, procedure, call edge,
+      dead module, and performance finding catalogued in a SHA-stamped artifact.
+    </li>
+    <li>
+      <strong>Bounded context map</strong> — domains identified via three-way
+      voted analysis (call graph, co-mutation, table ownership) with confidence
+      scores. A human domain architect approves the map before translation begins.
+    </li>
+    <li>
+      <strong>TNAS + fitness suite</strong> — Technology-Neutral Architecture
+      Specification for the target platform, with blocking fitness rules committed
+      to CI on day one.
+    </li>
+  </ol>
+</section>
+
+<section class="hero" style="padding-top:0;">
+  <h2>Run the analysis</h2>
+  <p class="lede" style="font-size:0.95rem;">
+    Choose a target language and launch. Each phase pauses at a human gate
+    before the next agent begins.
+  </p>
+
+  <form hx-post="/runs"
+        hx-target="#demo-started"
+        hx-swap="innerHTML"
+        class="run-form">
+
+    <input type="hidden" name="source_path" value="examples/java-bankxyz_fraud_detection">
+    <input type="hidden" name="source_lang" value="cobol">
+
+    <label>
+      <span>Target language</span>
+      <select name="target_lang">
+        <option value="java21">Java 21 (Spring Boot / Axon)</option>
+        <option value="python3">Python 3 (FastAPI / Pydantic)</option>
+        <option value="kotlin">Kotlin (Spring Boot)</option>
+        <option value="go">Go</option>
+      </select>
+    </label>
+
+    <button type="submit">Launch analysis →</button>
+  </form>
+
+  <div id="demo-started"></div>
+</section>
+
+<style>
+  .demo-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    margin-bottom: 1.5rem;
+  }
+  .demo-table th {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 2px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .demo-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .demo-table tr:last-child td { border-bottom: none; }
+  .warn-text { color: var(--warn); font-size: 0.82rem; }
+  .dead-text { color: var(--accent); font-size: 0.82rem; }
+  select {
+    font-family: var(--body);
+    font-size: 0.9rem;
+    padding: 8px 10px;
+    border: 1px solid var(--rule);
+    background: var(--bg);
+    color: var(--ink);
+    width: 100%;
+    margin-top: 4px;
+  }
+</style>
+
+{% endblock %}

@@ -1,0 +1,30 @@
+# .dockerignore for NatWest Fraud Detection .NET application
+
+# Version control
+.git
+.gitignore
+
+# Build outputs
+**/bin/
+**/obj/
+**/packages/
+
+# Visual Studio artifacts
+**/.vs/
+**/*.user
+**/*.suo
+**/*.userprefs
+
+# Documentation (not needed in container)
+README.md
+ARCHITECTURE.md
+
+# Environment files (secrets must not be baked into image)
+.env
+
+# Test projects
+**/*Tests*/
+**/*Test*/
+
+# NuGet packages (restored during build stage)
+packages/

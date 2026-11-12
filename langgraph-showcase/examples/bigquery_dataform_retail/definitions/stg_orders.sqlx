@@ -1,0 +1,17 @@
+config {
+  type: "table",
+  schema: "staging",
+  name: "stg_orders",
+  description: "Cleansed retail orders for the last 90 days.",
+  dependencies: ["raw_orders"]
+}
+
+SELECT
+  order_id,
+  customer_id,
+  order_date,
+  CAST(amount AS NUMERIC) AS amount,
+  IFNULL(channel, 'unknown') AS channel
+FROM ${ref("raw_orders")}
+WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+  AND amount IS NOT NULL

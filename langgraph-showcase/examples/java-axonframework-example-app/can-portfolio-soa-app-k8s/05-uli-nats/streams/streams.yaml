@@ -1,0 +1,80 @@
+###############################################################################
+# JetStream stream + consumer definitions. Apply with the helper script in
+# `cli/uli-bootstrap.sh` (which calls `nats stream add` / `nats consumer add`)
+# or via the NATS Kubernetes operator.
+###############################################################################
+
+streams:
+
+  - name: ULI_EVENTS
+    subjects: ["uli.events.>"]
+    retention: limits
+    storage: file
+    discard: old
+    max_age: 168h        # 7 days
+    max_bytes: 53687091200  # 50 GiB
+    max_msg_size: 1048576   # 1 MiB
+    num_replicas: 3
+    duplicate_window: 2m
+    description: "Domain events emitted by the bounded contexts."
+
+  - name: ULI_COMMANDS
+    subjects: ["uli.commands.>"]
+    retention: workqueue
+    storage: file
+    max_age: 24h
+    max_bytes: 5368709120   # 5 GiB
+    num_replicas: 3
+    duplicate_window: 2m
+    description: "Asynchronous commands across services."
+
+  - name: ULI_DLQ
+    subjects: ["uli.dlq.>"]
+    retention: limits
+    storage: file
+    max_age: 720h        # 30 days
+    num_replicas: 3
+    description: "Poison messages parked here by consumers after retries."
+
+consumers:
+
+  # Per-service durable consumer of every event subject. ack_policy explicit
+  # so the consumer re-delivers if a pod dies between processing and ack.
+  - stream: ULI_EVENTS
+    name: search-index-builder
+    durable: search-index-builder
+    deliver_policy: all
+    ack_policy: explicit
+    ack_wait: 30s
+    max_deliver: 5
+    filter_subject: "uli.events.>"
+    description: "Search service indexer"
+
+  - stream: ULI_EVENTS
+    name: workflow-orchestrator
+    durable: workflow-orchestrator
+    deliver_policy: all
+    ack_policy: explicit
+    ack_wait: 30s
+    max_deliver: 5
+    filter_subject: "uli.events.portfolio.>"
+
+  - stream: ULI_EVENTS
+    name: eventhub-bridge
+    durable: eventhub-bridge
+    deliver_policy: new
+    ack_policy: explicit
+    ack_wait: 30s
+    max_deliver: 8
+    filter_subject: "uli.events.>"
+    description: "Replicates events to Azure Event Hubs"
+
+  - stream: ULI_COMMANDS
+    name: vdr-ingestion-worker
+    durable: vdr-ingestion-worker
+    deliver_policy: all
+    ack_policy: explicit
+    ack_wait: 5m
+    max_deliver: 10
+    filter_subject: "uli.commands.vdr.>"
+    description: "VDR ingestion command processor"

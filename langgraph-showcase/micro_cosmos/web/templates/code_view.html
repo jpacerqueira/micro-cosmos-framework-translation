@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ path }}</title>
+  <link rel="stylesheet" href="{{ static_url('css/app.css') }}">
+</head>
+<body class="code-view">
+  <p class="code-view-path">{{ path }}</p>
+  {% if truncated %}
+  <p class="code-view-note">Showing the first 200 KB of this file.</p>
+  {% endif %}
+  <pre class="code-view-body">{{ content }}</pre>
+</body>
+</html>

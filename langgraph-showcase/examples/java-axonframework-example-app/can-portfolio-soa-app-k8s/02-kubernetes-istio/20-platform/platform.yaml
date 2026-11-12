@@ -1,0 +1,235 @@
+###############################################################################
+# Platform layer - NATS JetStream cluster (ULI), Axon Server (event store /
+# command bus), and the SecretProviderClass that binds Key Vault into pods.
+###############################################################################
+# NATS JetStream - 3-node cluster.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nats-config
+  namespace: can-system
+data:
+  nats.conf: |
+    server_name: $POD_NAME
+    listen: 0.0.0.0:4222
+    monitor_port: 8222
+    jetstream {
+      store_dir: /data/jetstream
+      max_memory_store: 1Gb
+      max_file_store: 20Gb
+    }
+    cluster {
+      name: can-nats
+      listen: 0.0.0.0:6222
+      routes: [
+        nats://nats-0.nats.can-system.svc.cluster.local:6222
+        nats://nats-1.nats.can-system.svc.cluster.local:6222
+        nats://nats-2.nats.can-system.svc.cluster.local:6222
+      ]
+    }
+    authorization {
+      timeout: 2
+      users: [
+        { user: "uli-publisher", password: "$ULI_PUB_PASSWORD",
+          permissions: { publish: ["uli.>"], subscribe: ["_INBOX.>"] } }
+        { user: "uli-consumer",  password: "$ULI_CON_PASSWORD",
+          permissions: { subscribe: ["uli.>"], publish: ["_INBOX.>"] } }
+      ]
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats
+  namespace: can-system
+  labels: { app: nats }
+spec:
+  selector: { app: nats }
+  clusterIP: None
+  ports:
+    - { name: client,  port: 4222 }
+    - { name: cluster, port: 6222 }
+    - { name: monitor, port: 8222 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nats
+  namespace: can-system
+spec:
+  serviceName: nats
+  replicas: 3
+  selector: { matchLabels: { app: nats } }
+  template:
+    metadata:
+      labels: { app: nats }
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: can-workload-sa
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: nats
+          image: nats:2.10-alpine
+          args: ["--config", "/etc/nats/nats.conf"]
+          ports:
+            - { name: client,  containerPort: 4222 }
+            - { name: cluster, containerPort: 6222 }
+            - { name: monitor, containerPort: 8222 }
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: ULI_PUB_PASSWORD
+              valueFrom: { secretKeyRef: { name: nats-creds, key: pub_password } }
+            - name: ULI_CON_PASSWORD
+              valueFrom: { secretKeyRef: { name: nats-creds, key: con_password } }
+          volumeMounts:
+            - { name: config, mountPath: /etc/nats }
+            - { name: data,   mountPath: /data }
+          readinessProbe:
+            httpGet: { path: /healthz, port: monitor }
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: monitor }
+            initialDelaySeconds: 30
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits:   { cpu: 1,    memory: 1Gi }
+      volumes:
+        - name: config
+          configMap: { name: nats-config }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: managed-csi
+        resources: { requests: { storage: 20Gi } }
+---
+###############################################################################
+# Axon Server - event store + command/query bus for the CQRS backend.
+###############################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: axonserver
+  namespace: can-system
+spec:
+  selector: { app: axonserver }
+  ports:
+    - { name: grpc, port: 8124 }
+    - { name: http, port: 8024 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: axonserver
+  namespace: can-system
+spec:
+  serviceName: axonserver
+  replicas: 1
+  selector: { matchLabels: { app: axonserver } }
+  template:
+    metadata:
+      labels: { app: axonserver }
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: can-workload-sa
+      containers:
+        - name: axonserver
+          image: axoniq/axonserver:2024.1
+          ports:
+            - { name: grpc, containerPort: 8124 }
+            - { name: http, containerPort: 8024 }
+          env:
+            - { name: AXONIQ_AXONSERVER_DEVMODE_ENABLED, value: "false" }
+            - { name: AXONIQ_AXONSERVER_NAME, value: "can-axon" }
+            - { name: AXONIQ_AXONSERVER_HOSTNAME, value: "axonserver" }
+          volumeMounts:
+            - { name: events,   mountPath: /axonserver/events }
+            - { name: data,     mountPath: /axonserver/data }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: http }
+            initialDelaySeconds: 30
+          resources:
+            requests: { cpu: 500m, memory: 1Gi }
+            limits:   { cpu: 2,    memory: 4Gi }
+  volumeClaimTemplates:
+    - metadata: { name: events }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: managed-csi
+        resources: { requests: { storage: 50Gi } }
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: managed-csi
+        resources: { requests: { storage: 20Gi } }
+---
+###############################################################################
+# Workload identity service account - all pods that need Key Vault use this.
+###############################################################################
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: can-workload-sa
+  namespace: can-system
+  annotations:
+    azure.workload.identity/client-id: "<WORKLOAD_IDENTITY_CLIENT_ID>"
+  labels:
+    azure.workload.identity/use: "true"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: can-workload-sa
+  namespace: can-app
+  annotations:
+    azure.workload.identity/client-id: "<WORKLOAD_IDENTITY_CLIENT_ID>"
+  labels:
+    azure.workload.identity/use: "true"
+---
+###############################################################################
+# CSI SecretProviderClass - exposes Key Vault secrets as Kubernetes Secrets.
+###############################################################################
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: can-kv-secrets
+  namespace: can-app
+spec:
+  provider: azure
+  parameters:
+    usePodIdentity: "false"
+    useVMManagedIdentity: "false"
+    clientID: "<WORKLOAD_IDENTITY_CLIENT_ID>"
+    keyvaultName: "<KEYVAULT_NAME>"
+    tenantId: "<TENANT_ID>"
+    objects: |
+      array:
+        - |
+          objectName: pg-admin-password
+          objectType: secret
+        - |
+          objectName: nats-pub-password
+          objectType: secret
+        - |
+          objectName: nats-con-password
+          objectType: secret
+        - |
+          objectName: aad-client-secret
+          objectType: secret
+  secretObjects:
+    - secretName: pg-credentials
+      type: Opaque
+      data:
+        - { objectName: pg-admin-password, key: password }
+    - secretName: nats-creds
+      type: Opaque
+      data:
+        - { objectName: nats-pub-password, key: pub_password }
+        - { objectName: nats-con-password, key: con_password }
+    - secretName: aad-creds
+      type: Opaque
+      data:
+        - { objectName: aad-client-secret, key: client_secret }

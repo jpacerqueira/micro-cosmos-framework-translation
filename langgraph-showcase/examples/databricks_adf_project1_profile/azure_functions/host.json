@@ -1,0 +1,40 @@
+{
+    "version": "2.0",
+    "logging": {
+        "applicationInsights": {
+            "samplingSettings": {
+                "isEnabled": true,
+                "excludedTypes": "Request",
+                "includedTypes": "Exception;Trace"
+            },
+            "enableLiveMetrics": true,
+            "enableDependencyTracking": true,
+            "enablePerformanceCountersCollection": true
+        },
+        "logLevel": {
+            "default": "Information",
+            "Host.Results": "Information",
+            "Function": "Information",
+            "Host.Aggregator": "Information"
+        }
+    },
+    "extensions": {
+        "blob": {
+            "maxDegreeOfParallelism": 4,
+            "poisonBlobWhileProcessing": true
+        },
+        "http": {
+            "routePrefix": "api",
+            "maxOutstandingRequests": 200,
+            "maxConcurrentRequests": 100,
+            "dynamicThrottlesEnabled": true
+        }
+    },
+    "functionTimeout": "00:10:00",
+    "singleton": {
+        "lockPeriod": "00:00:30",
+        "listenerLockPeriod": "00:01:00",
+        "lockAcquisitionTimeout": "00:01:00",
+        "maxConcurrentCalls": 1
+    }
+} 

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Micro-Cosmos — Login</title>
+  <link rel="stylesheet" href="{{ static_url('css/app.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark"></span>
+      <span class="name">Micro-Cosmos</span>
+    </div>
+  </header>
+  <main>
+    <section class="hero">
+      <p class="classification">Micro-Cosmos · v0.1.0</p>
+      <h1>Sign in</h1>
+      <p class="lede">Enter the shared demo credentials to continue.</p>
+
+      {% if error %}
+      <p class="lede" style="color: var(--accent);">Incorrect username or password.</p>
+      {% endif %}
+
+      <form method="post" action="/login" class="run-form">
+        <label>
+          <span>Username</span>
+          <input type="text" name="username" autocomplete="username" required autofocus>
+        </label>
+        <label>
+          <span>Password</span>
+          <input type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit">Sign in →</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

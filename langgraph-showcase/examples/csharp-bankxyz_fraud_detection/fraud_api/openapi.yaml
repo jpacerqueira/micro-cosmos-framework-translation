@@ -1,0 +1,228 @@
+openapi: 3.0.3
+
+info:
+  title: BankXYZ Fraud Detection API
+  description: |
+    Real-time and batch fraud detection for BankXYZ payment transactions.
+    Provides a composite risk score and authorisation decision per transaction.
+
+    This API contract is identical for both the Java 8 Spring Boot and
+    C# .NET Framework 4.0 ASP.NET MVC 3 implementations.
+  version: 1.0.0
+  contact:
+    name: BankXYZ Fraud Technology
+    email: fraud.tech@bankxyz.example.com
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development (Docker Compose)
+
+paths:
+
+  /authorise:
+    post:
+      summary: Real-time fraud authorisation
+      description: |
+        Scores a single payment transaction and returns an authorisation decision.
+
+        Scoring pipeline:
+          1. Account validation (inactive account -> score 1.0, ESCALATED)
+          2. Amount signal (LOW/MED/HIGH thresholds)
+          3. Merchant risk signal (BLOCKED/HIGH/MED/LOW)
+          4. Velocity check (24-hour transaction count)
+          5. Customer profile deviation (amount, country, time-of-day, CNP)
+          6. Watchlist screening (OFAC -> PEP -> INTERNAL)
+          7. Composite weighted score
+
+        SLA: responses exceeding 180ms are approved immediately per BRD-2009-FD-004.
+
+        Decision thresholds (configurable):
+          - score >= 0.90 -> DECLINE (returnCode "10")
+          - score >= 0.75 -> REVIEW  (returnCode "20") + alert written
+          - score <  0.75 -> APPROVE (returnCode "00")
+      operationId: authorise
+      tags: [Fraud]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FraudCheckRequest'
+            examples:
+              normal_transaction:
+                summary: Normal low-risk transaction
+                value:
+                  txnId: TXN0000000000001
+                  acctNo: ACC0000001
+                  txnAmount: 49.99
+                  merchantCode: MCH00001
+                  channel: CHIPPIN
+                  txnCountry: GBR
+                  cardType: VI
+                  cnpFlag: false
+              high_value_online:
+                summary: High-value CNP transaction
+                value:
+                  txnId: TXN0000000000002
+                  acctNo: ACC0000002
+                  txnAmount: 7500.00
+                  merchantCode: MCH00002
+                  channel: ONLINE
+                  txnCountry: USA
+                  cardType: MC
+                  cnpFlag: true
+      responses:
+        '200':
+          description: Fraud check result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FraudCheckResponse'
+              examples:
+                approved:
+                  summary: Approved transaction
+                  value:
+                    txnId: TXN0000000000001
+                    decision: APPROVE
+                    returnCode: "00"
+                    fraudScore: 0.1500
+                    message: TRANSACTION APPROVED
+                    elapsedMs: 12
+                declined:
+                  summary: Declined transaction
+                  value:
+                    txnId: TXN0000000000002
+                    decision: DECLINE
+                    returnCode: "10"
+                    fraudScore: 0.9250
+                    message: TRANSACTION DECLINED
+                    elapsedMs: 18
+        '500':
+          description: Internal server error
+
+  /batch/run:
+    post:
+      summary: Trigger batch transaction processing
+      description: |
+        Immediately processes all pending transactions (TXN_STATUS = 'P') up to
+        the configured maximum batch size (default 500).
+
+        Normally executed by the nightly scheduler at 02:00 local time.
+        This endpoint allows on-demand execution for testing or catch-up processing.
+
+        Each transaction is scored, alerts are written for fraud-flagged transactions,
+        and the transaction is stamped as processed (TXN_STATUS = 'S').
+      operationId: runBatch
+      tags: [Batch]
+      responses:
+        '200':
+          description: Batch processing summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchRunResponse'
+              example:
+                message: "Batch complete: 47 processed, 3 alerts raised in 892ms"
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+
+    FraudCheckRequest:
+      type: object
+      required:
+        - txnId
+        - acctNo
+        - txnAmount
+        - merchantCode
+        - channel
+        - txnCountry
+        - cardType
+        - cnpFlag
+      properties:
+        txnId:
+          type: string
+          maxLength: 16
+          description: Unique transaction identifier
+          example: TXN0000000000001
+        acctNo:
+          type: string
+          maxLength: 10
+          description: Account number
+          example: ACC0000001
+        txnAmount:
+          type: number
+          format: decimal
+          description: Transaction amount in GBP
+          example: 249.99
+        merchantCode:
+          type: string
+          maxLength: 8
+          description: Merchant code (must exist in MERCHANT_RISK)
+          example: MCH00001
+        channel:
+          type: string
+          enum: [ATM, ONLINE, BRANCH, CHIPPIN]
+          description: Payment channel
+          example: ONLINE
+        txnCountry:
+          type: string
+          maxLength: 3
+          description: ISO 3166-1 alpha-3 country code
+          example: GBR
+        cardType:
+          type: string
+          maxLength: 2
+          description: Card type code (VI=Visa, MC=Mastercard, AX=Amex)
+          example: VI
+        cnpFlag:
+          type: boolean
+          description: true if card-not-present (e-commerce / MOTO)
+          example: false
+
+    FraudCheckResponse:
+      type: object
+      properties:
+        txnId:
+          type: string
+          description: Echo of the request transaction identifier
+          example: TXN0000000000001
+        decision:
+          type: string
+          enum: [APPROVE, REVIEW, DECLINE]
+          description: Authorisation decision
+          example: APPROVE
+        returnCode:
+          type: string
+          enum: ["00", "20", "10"]
+          description: ISO 8583-style return code (00=Approve, 20=Review, 10=Decline)
+          example: "00"
+        fraudScore:
+          type: number
+          format: decimal
+          description: Composite fraud score in range [0.0000, 1.0000]
+          example: 0.1500
+        message:
+          type: string
+          description: Human-readable decision message
+          example: TRANSACTION APPROVED
+        elapsedMs:
+          type: integer
+          format: int64
+          description: Processing time in milliseconds
+          example: 12
+
+    BatchRunResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Human-readable batch processing summary
+          example: "Batch complete: 47 processed, 3 alerts raised in 892ms"
+
+tags:
+  - name: Fraud
+    description: Real-time fraud authorisation
+  - name: Batch
+    description: Batch transaction processing

@@ -1,0 +1,16 @@
+{
+  "name": "BrandedReplaceETL",
+  "properties": {
+    "description": "Branded spoke REPLACE write-back: rebuilds branded_prod attribution tables from BIS",
+    "activities": [
+      {
+        "name": "RunBrandedAttributionReplace",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "/project_domain/notebooks/02_branded_spoke/BrandedReplaceLoad"
+        },
+        "dependsOn": []
+      }
+    ]
+  }
+}

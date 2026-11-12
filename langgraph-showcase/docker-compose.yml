@@ -1,0 +1,111 @@
+services:
+  llm-gateway:
+    image: ghcr.io/berriai/litellm:main-stable
+    ports:
+      # Host 4001 so this stack can coexist with agentic-security's gateway on 4000.
+      # In-network the app still uses http://llm-gateway:4000/v1.
+      - "4001:4000"
+    environment:
+      LLM_PROFILE: ${LLM_PROFILE:-ollama}
+      LITELLM_MASTER_KEY: ${LLM_API_KEY:-sk-micro-cosmos-local}
+      LITELLM_LOG: ${LITELLM_LOG:-DEBUG}
+      JSON_LOGS: "True"
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /app/config
+      STORE_MODEL_IN_DB: "False"
+      GATEWAY_LOG_DIR: /app/logs
+      # Ollama (active profile)
+      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-ollama}
+      OLLAMA_LITELLM_MODEL: ${OLLAMA_LITELLM_MODEL:-ollama_chat/gemma4:latest}
+      # LM Studio (dormant)
+      LMSTUDIO_API_BASE: ${LMSTUDIO_API_BASE:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_API_KEY: ${LMSTUDIO_API_KEY:-lm-studio}
+      LMSTUDIO_LITELLM_MODEL: ${LMSTUDIO_LITELLM_MODEL:-google/gemma-4-e4b}
+      # vLLM (dormant)
+      VLLM_API_BASE: ${VLLM_API_BASE:-http://host.docker.internal:8000/v1}
+      VLLM_API_KEY: ${VLLM_API_KEY:-sk-micro-cosmos-local}
+      VLLM_LITELLM_MODEL: ${VLLM_LITELLM_MODEL:-hosted_vllm/gemma4:latest}
+      # AWS Bedrock (dormant)
+      BEDROCK_LITELLM_MODEL: ${BEDROCK_LITELLM_MODEL:-bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+      # Vertex AI Gemini (dormant)
+      VERTEX_LITELLM_MODEL: ${VERTEX_LITELLM_MODEL:-vertex_ai/gemini-2.0-flash}
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+      VERTEX_LOCATION: ${VERTEX_LOCATION:-${GOOGLE_CLOUD_LOCATION:-us-central1}}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./llm-gateway:/app/config:ro
+      - ./logs:/app/logs
+      # Vertex: uncomment and set LLM_PROFILE=vertex
+      # - ./llm-gateway/secrets/gcp-sa.json:/secrets/gcp-sa.json:ro
+      # - ~/.config/gcloud:/root/.config/gcloud:ro
+    entrypoint: ["/bin/sh", "/app/config/entrypoint.sh"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness')\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  micro-cosmos:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # App talks OpenAI /v1 to llm-gateway. Switch backends with LLM_PROFILE
+      # on the gateway service (restart gateway only). No silent failover.
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://llm-gateway:4000/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-sk-micro-cosmos-local}
+      LLM_ENGINE: ${LLM_ENGINE:-gateway}
+      LLM_PROFILE: ${LLM_PROFILE:-ollama}
+      MODEL_REASONING: ${MODEL_REASONING:-gemma4:latest}
+      MODEL_FAST: ${MODEL_FAST:-gemma4:latest}
+      MODEL_CONTEXT_LENGTH: ${MODEL_CONTEXT_LENGTH:-131072}
+      MODEL_TEMPERATURE: ${MODEL_TEMPERATURE:-0.2}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-28800}
+      SKIP_LLM: ${SKIP_LLM:-true}
+      MAX_TDD_ITERATIONS_PER_SEAM: ${MAX_TDD_ITERATIONS_PER_SEAM:-3}
+      GOOGLE_GENAI_USE_VERTEXAI: ${GOOGLE_GENAI_USE_VERTEXAI:-FALSE}
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+      GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-}
+      RUNS_DIR: /app/runs
+      LOG_DIR: /app/logs
+      DEMO_USERNAME: ${DEMO_USERNAME:-demo}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demobxyz}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      llm-gateway:
+        condition: service_healthy
+    volumes:
+      - ./examples:/app/examples
+      - ./runs:/app/runs
+      - ./logs:/app/logs
+      # Direct Vertex on the app (LLM_ENGINE=vertex, bypassing the gateway)
+      # still uses host ADC — un-comment if you opt out of LLM_PROFILE=vertex:
+      # - ~/.config/gcloud:/root/.config/gcloud:ro
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  runs:

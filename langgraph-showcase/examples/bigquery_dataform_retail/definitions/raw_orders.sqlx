@@ -1,0 +1,14 @@
+config {
+  type: "view",
+  schema: "raw",
+  name: "raw_orders",
+  description: "BigQuery raw orders export."
+}
+
+SELECT
+  order_id,
+  customer_id,
+  order_date,
+  amount,
+  channel
+FROM `retail_raw.orders`

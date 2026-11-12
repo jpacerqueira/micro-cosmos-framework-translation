@@ -1,0 +1,21 @@
+# Tasks — Micro-Cosmos Terraform Power
+
+- [x] 1. Write POWER.md frontmatter (name, displayName, author, description, keywords)
+- [x] 2. Write Response Contract section
+- [x] 3. Write Workflow section
+- [x] 4. Write Microservice Module Coverage — MANDATORY CHECK section with WARN criteria
+- [x] 5. Write Diagnose Before You Generate routing table
+- [x] 6. Write Module Conventions for Micro-Cosmos Microservices section with HCL examples
+- [x] 7. Write Security Baseline section with CLI commands
+- [x] 8. Write Pipeline Phase Traceability section with tags HCL
+- [x] 9. Write PR Gate Alignment (Gate 5) checklist
+- [x] 10. Write Common Workflows section (review existing HCL, generate new module, security review)
+- [x] 11. Write README.md
+- [x] 12. Write package.json (ESM, vitest, fast-check, js-yaml)
+- [x] 13. Write vitest.config.js
+- [x] 14. Write tests/power.property.test.js (Property 1: schema, Property 2: keyword categories)
+- [x] 15. Write tests/power.unit.test.js (frontmatter values, sections, workflows)
+- [x] 16. Write .kiro/specs/micro-cosmos-terraform-power/requirements.md (10 requirements)
+- [x] 17. Write .kiro/specs/micro-cosmos-terraform-power/design.md
+- [x] 18. Write .kiro/specs/micro-cosmos-terraform-power/tasks.md
+- [x] 19. Write .kiro/specs/micro-cosmos-terraform-power/.config.kiro

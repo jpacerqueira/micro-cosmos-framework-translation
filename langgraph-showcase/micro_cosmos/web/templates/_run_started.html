@@ -1,0 +1,8 @@
+<div class="started-card">
+  <p><strong>Run <code>{{ run_id }}</code> started.</strong></p>
+  <p>{{ source_lang }} → {{ target_lang }} · source: <code>{{ source_path }}</code></p>
+  <a href="/runs/{{ run_id }}" class="cta">Open dashboard →</a>
+</div>
+<script>
+  setTimeout(() => { window.location = "/runs/{{ run_id }}"; }, 800);
+</script>

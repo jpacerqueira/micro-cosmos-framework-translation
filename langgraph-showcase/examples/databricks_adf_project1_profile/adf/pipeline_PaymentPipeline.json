@@ -1,0 +1,66 @@
+{
+    "name": "PaymentDiagnosticPipeline",
+    "properties": {
+        "description": "Daily payment diagnostics pipeline — runs across all 5 payment provider catalogs.",
+        "activities": [
+            {
+                "name": "RunWooPaymentsDiagnostics",
+                "type": "DatabricksNotebook",
+                "dependsOn": [],
+                "typeProperties": {
+                    "notebookPath": "/Repos/retail-platform/notebooks/05_payment_diagnostics/PaymentDiagnostics",
+                    "baseParameters": {
+                        "provider": "wp"
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "DatabricksLinkedService",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "RunAmazonPayDiagnostics",
+                "type": "DatabricksNotebook",
+                "dependsOn": [],
+                "typeProperties": {
+                    "notebookPath": "/Repos/retail-platform/notebooks/05_payment_diagnostics/PaymentDiagnostics",
+                    "baseParameters": {
+                        "provider": "ap"
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "DatabricksLinkedService",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "RunKlarnaReconciliation",
+                "type": "DatabricksSparkJar",
+                "dependsOn": [
+                    {
+                        "activity": "RunWooPaymentsDiagnostics",
+                        "dependencyConditions": ["Succeeded"]
+                    },
+                    {
+                        "activity": "RunAmazonPayDiagnostics",
+                        "dependencyConditions": ["Succeeded"]
+                    }
+                ],
+                "typeProperties": {
+                    "mainClassName": "com.retail.payments.KlarnaReconciliation",
+                    "jarLinkedService": {
+                        "referenceName": "AzureBlobStorageLinkedService",
+                        "type": "LinkedServiceReference"
+                    },
+                    "parameters": [
+                        "wasb://jars@retailstorage.blob.core.windows.net/klarna_reconciliation.jar"
+                    ]
+                },
+                "linkedServiceName": {
+                    "referenceName": "DatabricksLinkedService",
+                    "type": "LinkedServiceReference"
+                }
+            }
+        ]
+    }
+}

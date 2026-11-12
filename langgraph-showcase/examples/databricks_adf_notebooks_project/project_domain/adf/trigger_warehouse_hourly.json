@@ -1,0 +1,17 @@
+{
+  "name": "trigger_warehouse_hourly",
+  "properties": {
+    "type": "ScheduleTrigger",
+    "description": "Warehouse staging ingest — runs hourly. Batch INSERT, not real streaming.",
+    "typeProperties": {
+      "recurrence": {
+        "frequency": "Hour",
+        "interval": 1,
+        "timeZone": "UTC"
+      }
+    },
+    "pipelines": [
+      {"pipelineReference": {"type": "PipelineReference", "referenceName": "WarehouseStreamingIngest"}}
+    ]
+  }
+}

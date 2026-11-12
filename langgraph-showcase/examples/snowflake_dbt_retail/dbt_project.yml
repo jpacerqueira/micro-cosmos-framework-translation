@@ -1,0 +1,10 @@
+name: retail_customers
+version: "1.0.0"
+profile: snowflake_retail
+model-paths: ["models"]
+models:
+  retail_customers:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table

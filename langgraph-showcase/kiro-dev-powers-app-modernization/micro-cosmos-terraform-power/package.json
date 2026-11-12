@@ -1,0 +1,14 @@
+{
+  "name": "micro-cosmos-terraform-power",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Tests for the Micro-Cosmos Terraform Kiro.dev Power",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "fast-check": "^3.19.0",
+    "js-yaml": "^4.1.0"
+  }
+}

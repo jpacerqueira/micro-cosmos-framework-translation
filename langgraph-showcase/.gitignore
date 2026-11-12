@@ -1,0 +1,60 @@
+# Secrets / local config
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Pipeline run artefacts — generated per-run, never committed
+runs/
+runs/**
+
+# Claude ignore -  worktrees
+.claude/worktrees/**
+.claude/settings.json
+.claude/settings-local.json
+
+# RAG index — built on first query_spec_docs call
+.rag_index/
+
+# Demo output artefacts
+examples/fraud_detection/output/
+# axonframework app is too big
+examples/java-axonframework-modern-app/output/
+examples/java-axonframework-modern-app/can-portfolio-soa-app-k8s/03-backend-springboot/*/target/*
+# databricks adf app is too big 
+examples/project1_databricks_adf/output/
+
+# Claude Code local / nested worktrees (do not commit)
+.claude/settings.local.json
+.claude/worktrees/
+
+# Keep empty runs dir in repo
+!runs/.gitkeep
+
+# Log files
+*.log
+logs/*
+!logs/.gitkeep
+
+# Gateway cloud credentials (never commit)
+llm-gateway/secrets/*
+!llm-gateway/secrets/.gitkeep

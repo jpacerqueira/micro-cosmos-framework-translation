@@ -1,0 +1,400 @@
+{
+    "$schema": "https://calm.finos.org/release/1.2/meta/calm.json",
+    "unique-id": "bankxyz-fraud-detection",
+    "name": "BankXYZ Fraud Detection Service",
+    "description": "Java 8 / Spring Boot real-time and batch fraud detection service for BankXYZ retail and commercial banking, migrated from COBOL/CICS/Db2/IBM MQ on IBM z/OS 2.5. Scores payment transactions against five weighted risk signals and returns an authorisation decision within a 180ms SLA, with a nightly batch job re-scoring any pending transactions.",
+    "metadata": {
+        "version": "1.0.0",
+        "business-domain": "Fraud Detection - Retail and Commercial Banking",
+        "legacy-origin": "Migrated from COBOL/CICS/Db2/IBM MQ on IBM z/OS 2.5",
+        "runtime": "Java 8 / Spring Boot 2.7.x",
+        "owner": "BankXYZ Fraud Engineering"
+    },
+    "nodes": [
+        {
+            "unique-id": "payment-channels",
+            "node-type": "actor",
+            "name": "Payment Channels",
+            "description": "Card, ATM, Online and Branch channels submitting payment transactions for authorisation.",
+            "metadata": {
+                "channels": ["ATM", "ONLINE", "BRANCH", "CHIPPIN"]
+            }
+        },
+        {
+            "unique-id": "case-management-system",
+            "node-type": "actor",
+            "name": "Case Management System",
+            "description": "External downstream case management system that consumes fraud alert notifications from the alert queue for investigation.",
+            "metadata": {
+                "integration": "Consumes JSON messages from FRAUD.ALERT.QUEUE"
+            }
+        },
+        {
+            "unique-id": "fraud-detection-system",
+            "node-type": "system",
+            "name": "BankXYZ Fraud Detection System",
+            "description": "The fraud detection service as a whole, composed of the transaction entry, fraud scoring and alert management bounded contexts.",
+            "metadata": {
+                "runtime": "Java 8 / Spring Boot 2.7.x",
+                "build": "Apache Maven 3.6+"
+            }
+        },
+        {
+            "unique-id": "transaction-entry-service",
+            "node-type": "service",
+            "name": "Transaction Entry Service",
+            "description": "Entry points for fraud detection - real-time REST authorisation endpoint, manual batch trigger, and the nightly scheduled batch job. Backed by RealtimeCheckController, TransactionMonitorService and FraudBatchJobConfig.",
+            "interfaces": [
+                {
+                    "unique-id": "transaction-entry-port",
+                    "port": 8080
+                },
+                {
+                    "unique-id": "authorise-endpoint",
+                    "path": "/api/v1/authorise",
+                    "method": "POST",
+                    "description": "Synchronous real-time fraud check, must respond within 180ms SLA"
+                },
+                {
+                    "unique-id": "batch-trigger-endpoint",
+                    "path": "/api/v1/batch/run",
+                    "method": "POST",
+                    "description": "Manually triggers the nightly fraud batch job"
+                },
+                {
+                    "unique-id": "health-endpoint",
+                    "path": "/actuator/health",
+                    "method": "GET"
+                }
+            ],
+            "metadata": {
+                "bounded-context": "TransactionEntry",
+                "classes": ["RealtimeCheckController", "TransactionMonitorService", "FraudBatchJobConfig"],
+                "batch-schedule": "0 0 2 * * ?",
+                "sla-limit-ms": 180
+            }
+        },
+        {
+            "unique-id": "fraud-scoring-service",
+            "node-type": "service",
+            "name": "Fraud Scoring Service",
+            "description": "Five-signal composite fraud risk scoring engine: transaction amount, merchant risk band, 24-hour velocity, customer profile deviation, and OFAC/PEP/internal watchlist screening.",
+            "metadata": {
+                "bounded-context": "FraudScoring",
+                "classes": ["FraudRulesService", "VelocityCheckService", "CustomerProfileService", "WatchlistService"],
+                "signals": ["amount", "merchant-risk", "velocity", "profile-deviation", "watchlist"]
+            }
+        },
+        {
+            "unique-id": "alert-management-service",
+            "node-type": "service",
+            "name": "Alert Management Service",
+            "description": "Persists fraud alerts and notifies the downstream case team. Alert DB write and MQ notification occur in a single transactional scope; MQ failure is non-fatal and logged separately.",
+            "metadata": {
+                "bounded-context": "AlertManagement",
+                "classes": ["AlertWriterService", "MqNotificationService"],
+                "alert-threshold": 0.75
+            }
+        },
+        {
+            "unique-id": "fraud-oracle-database",
+            "node-type": "database",
+            "name": "Fraud Oracle Database",
+            "description": "Oracle database (XE 21c in Docker, schema-compatible with Oracle 10g DDL) holding account, transaction, merchant risk, customer profile, watchlist, fraud alert, and operational log tables.",
+            "interfaces": [
+                {
+                    "unique-id": "oracle-jdbc",
+                    "host": "oracle",
+                    "port": 1521,
+                    "service-name": "XEPDB1",
+                    "protocol": "JDBC"
+                }
+            ],
+            "metadata": {
+                "engine": "Oracle XE 21c",
+                "dialect": "org.hibernate.dialect.Oracle10gDialect",
+                "tables": [
+                    "ACCOUNT_MASTER", "TXN_QUEUE", "MERCHANT_RISK", "CUST_PROFILE",
+                    "WATCHLIST", "WATCHLIST_HITS", "FRAUD_ALERTS", "MQ_FAILURE_LOG", "SLA_BREACH_LOG"
+                ]
+            }
+        },
+        {
+            "unique-id": "fraud-alert-queue",
+            "node-type": "message-broker",
+            "name": "Fraud Alert Queue",
+            "description": "ActiveMQ 5.18 Classic message broker hosting FRAUD.ALERT.QUEUE, a drop-in replacement for the production IBM MQ 9.x queue used to notify case management of new fraud alerts.",
+            "interfaces": [
+                {
+                    "unique-id": "activemq-broker",
+                    "host": "activemq",
+                    "port": 61616
+                },
+                {
+                    "unique-id": "activemq-console",
+                    "url": "http://activemq:8161"
+                },
+                {
+                    "unique-id": "fraud-alert-queue-name",
+                    "queue": "FRAUD.ALERT.QUEUE"
+                }
+            ],
+            "metadata": {
+                "engine": "ActiveMQ 5.18 Classic",
+                "production-equivalent": "IBM MQ 9.x",
+                "message-format": "JSON (Jackson MappingJackson2MessageConverter)"
+            }
+        },
+        {
+            "unique-id": "fraud-net",
+            "node-type": "network",
+            "name": "Fraud Detection Network",
+            "description": "Docker bridge network connecting the fraud detection application, Oracle database and ActiveMQ broker containers in the docker-compose deployment."
+        }
+    ],
+    "relationships": [
+        {
+            "unique-id": "payment-channels-to-transaction-entry",
+            "description": "Submits payment transactions for real-time authorisation to",
+            "relationship-type": {
+                "interacts": {
+                    "actor": "payment-channels",
+                    "nodes": ["transaction-entry-service"]
+                }
+            }
+        },
+        {
+            "unique-id": "fraud-detection-composition",
+            "description": "Composed of the transaction entry, fraud scoring and alert management bounded contexts",
+            "relationship-type": {
+                "composed-of": {
+                    "container": "fraud-detection-system",
+                    "nodes": ["transaction-entry-service", "fraud-scoring-service", "alert-management-service"]
+                }
+            }
+        },
+        {
+            "unique-id": "transaction-entry-to-fraud-scoring",
+            "description": "Invokes composite five-signal fraud scoring from",
+            "relationship-type": {
+                "connects": {
+                    "source": { "node": "transaction-entry-service" },
+                    "destination": { "node": "fraud-scoring-service" }
+                }
+            }
+        },
+        {
+            "unique-id": "transaction-entry-to-oracle",
+            "description": "Reads pending transactions from and writes SLA breach records to",
+            "protocol": "JDBC",
+            "relationship-type": {
+                "connects": {
+                    "source": { "node": "transaction-entry-service" },
+                    "destination": { "node": "fraud-oracle-database", "interfaces": ["oracle-jdbc"] }
+                }
+            }
+        },
+        {
+            "unique-id": "fraud-scoring-to-oracle",
+            "description": "Reads account status, merchant risk, customer profile and watchlist data from",
+            "protocol": "JDBC",
+            "relationship-type": {
+                "connects": {
+                    "source": { "node": "fraud-scoring-service" },
+                    "destination": { "node": "fraud-oracle-database", "interfaces": ["oracle-jdbc"] }
+                }
+            }
+        },
+        {
+            "unique-id": "transaction-entry-to-alert-management",
+            "description": "Requests fraud alert creation from",
+            "relationship-type": {
+                "connects": {
+                    "source": { "node": "transaction-entry-service" },
+                    "destination": { "node": "alert-management-service" }
+                }
+            }
+        },
+        {
+            "unique-id": "alert-management-to-oracle",
+            "description": "Persists fraud alerts to",
+            "protocol": "JDBC",
+            "relationship-type": {
+                "connects": {
+                    "source": { "node": "alert-management-service" },
+                    "destination": { "node": "fraud-oracle-database", "interfaces": ["oracle-jdbc"] }
+                }
+            }
+        },
+        {
+            "unique-id": "alert-management-to-queue",
+            "description": "Publishes fraud alert notifications to",
+            "relationship-type": {
+                "connects": {
+                    "source": { "node": "alert-management-service" },
+                    "destination": { "node": "fraud-alert-queue", "interfaces": ["activemq-broker"] }
+                }
+            },
+            "metadata": {
+                "actual-protocol": "JMS over OpenWire (ActiveMQ); IBM MQ MQI in production"
+            }
+        },
+        {
+            "unique-id": "case-management-consumes-queue",
+            "description": "Consumes fraud alert notifications from",
+            "relationship-type": {
+                "interacts": {
+                    "actor": "case-management-system",
+                    "nodes": ["fraud-alert-queue"]
+                }
+            }
+        },
+        {
+            "unique-id": "deployed-in-fraud-net",
+            "description": "Deployed in",
+            "relationship-type": {
+                "deployed-in": {
+                    "container": "fraud-net",
+                    "nodes": ["fraud-detection-system", "fraud-oracle-database", "fraud-alert-queue"]
+                }
+            }
+        }
+    ],
+    "flows": [
+        {
+            "unique-id": "realtime-authorisation-flow",
+            "name": "Real-Time Authorisation Flow",
+            "description": "End-to-end real-time transaction authorisation, from channel submission through composite fraud scoring to an APPROVE/REVIEW/DECLINE decision, with alerting for scores at or above 0.75. Must complete within 180ms.",
+            "requirement-url": "https://docs.bankxyz.example.com/fraud/requirements/realtime-authorisation.md",
+            "transitions": [
+                {
+                    "relationship-unique-id": "payment-channels-to-transaction-entry",
+                    "sequence-number": 1,
+                    "description": "Channel submits transaction to POST /api/v1/authorise"
+                },
+                {
+                    "relationship-unique-id": "transaction-entry-to-fraud-scoring",
+                    "sequence-number": 2,
+                    "description": "Controller invokes FraudRulesService.score() for the transaction"
+                },
+                {
+                    "relationship-unique-id": "fraud-scoring-to-oracle",
+                    "sequence-number": 3,
+                    "description": "Scoring engine reads account status, merchant risk band, velocity, profile and watchlist signals"
+                },
+                {
+                    "relationship-unique-id": "transaction-entry-to-oracle",
+                    "sequence-number": 4,
+                    "description": "If elapsed time exceeds 180ms, controller logs an SLA breach and defaults to APPROVE"
+                },
+                {
+                    "relationship-unique-id": "transaction-entry-to-alert-management",
+                    "sequence-number": 5,
+                    "description": "If composite score is at or above 0.75, controller requests alert creation"
+                },
+                {
+                    "relationship-unique-id": "alert-management-to-oracle",
+                    "sequence-number": 6,
+                    "description": "Alert writer persists the fraud alert within a transactional scope"
+                },
+                {
+                    "relationship-unique-id": "alert-management-to-queue",
+                    "sequence-number": 7,
+                    "description": "Alert writer publishes a JSON notification for the new alert"
+                },
+                {
+                    "relationship-unique-id": "case-management-consumes-queue",
+                    "sequence-number": 8,
+                    "description": "Case management system consumes the alert notification for investigation"
+                }
+            ],
+            "metadata": {
+                "sla": "180ms end-to-end",
+                "business-rule": "BRD-2009-FD-004: SLA breach always defaults to APPROVE"
+            }
+        },
+        {
+            "unique-id": "nightly-batch-flow",
+            "name": "Nightly Batch Fraud Review Flow",
+            "description": "Scheduled batch job (or manually triggered via POST /api/v1/batch/run) that re-scores all pending transactions using the same fraud scoring engine as the real-time path.",
+            "requirement-url": "https://docs.bankxyz.example.com/fraud/requirements/nightly-batch.md",
+            "transitions": [
+                {
+                    "relationship-unique-id": "transaction-entry-to-oracle",
+                    "sequence-number": 1,
+                    "description": "TransactionMonitorService reads all TXN_QUEUE rows with TXN_STATUS='P'"
+                },
+                {
+                    "relationship-unique-id": "transaction-entry-to-fraud-scoring",
+                    "sequence-number": 2,
+                    "description": "Each pending transaction is scored by the same fraud scoring engine"
+                },
+                {
+                    "relationship-unique-id": "fraud-scoring-to-oracle",
+                    "sequence-number": 3,
+                    "description": "Scoring engine reads account, merchant risk, profile and watchlist signals"
+                },
+                {
+                    "relationship-unique-id": "transaction-entry-to-alert-management",
+                    "sequence-number": 4,
+                    "description": "If composite score is at or above 0.75, batch requests alert creation"
+                },
+                {
+                    "relationship-unique-id": "alert-management-to-oracle",
+                    "sequence-number": 5,
+                    "description": "Alert writer persists the fraud alert"
+                },
+                {
+                    "relationship-unique-id": "alert-management-to-queue",
+                    "sequence-number": 6,
+                    "description": "Alert writer publishes a JSON notification for the new alert"
+                }
+            ],
+            "metadata": {
+                "schedule": "0 0 2 * * ?",
+                "max-transactions-per-run": 500
+            }
+        }
+    ],
+    "controls": {
+        "realtime-sla": {
+            "description": "Real-time authorisation must respond within a 180ms SLA; breaches always default to APPROVE and are logged for trend analysis (BRD-2009-FD-004).",
+            "requirements": [
+                {
+                    "requirement-url": "https://compliance.bankxyz.example.com/requirements/realtime-sla.json",
+                    "config": {
+                        "max-latency-ms": 180,
+                        "breach-behavior": "APPROVE",
+                        "enforced-in": "RealtimeCheckController.authorise()"
+                    }
+                }
+            ]
+        },
+        "watchlist-screening": {
+            "description": "OFAC, PEP and internal watchlist hits force the composite fraud score to 1.0 and trigger immediate escalation, regardless of other signal scores.",
+            "requirements": [
+                {
+                    "requirement-url": "https://compliance.bankxyz.example.com/requirements/watchlist-screening.json",
+                    "config": {
+                        "frameworks": ["OFAC", "PEP", "internal"],
+                        "escalation": "immediate",
+                        "enforced-in": "FraudRulesService.score()"
+                    }
+                }
+            ]
+        },
+        "monetary-precision": {
+            "description": "All monetary values must use BigDecimal with HALF_UP rounding; float and double are prohibited, preserving the COMP-3 precision invariant from the original COBOL system.",
+            "requirements": [
+                {
+                    "requirement-url": "https://compliance.bankxyz.example.com/requirements/monetary-precision.json",
+                    "config": {
+                        "numeric-type": "BigDecimal",
+                        "rounding": "HALF_UP",
+                        "score-cap": "1.0000"
+                    }
+                }
+            ]
+        }
+    }
+}

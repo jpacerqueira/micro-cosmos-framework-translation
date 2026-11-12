@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: property-allocation
+  namespace: can-legacy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: property-allocation
+  template:
+    metadata:
+      labels:
+        app: property-allocation
+    spec:
+      containers:
+      - name: property-allocation
+        image: $(ACR_NAME).azurecr.io/can-legacy/property-allocation:latest
+        ports:
+        - containerPort: 8002
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: prod
+        - name: SERVICE_NAME
+          value: property-allocation
+        - name: ENVIRONMENT
+          value: production
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            secretKeyRef:
+              name: oracle-secret
+              key: jdbc-url
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: oracle-secret
+              key: username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: oracle-secret
+              key: password
+        - name: SPRING_ACTIVEMQ_BROKER_URL
+          value: tcp://activemq:61616
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8002
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8002
+          initialDelaySeconds: 90
+          periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: property-allocation
+  namespace: can-legacy
+spec:
+  selector:
+    app: property-allocation
+  ports:
+  - port: 8002
+    targetPort: 8002

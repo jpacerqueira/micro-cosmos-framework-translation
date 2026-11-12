@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 660" font-family="Arial, sans-serif">
+  <defs>
+    <marker id="a4" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1f4e79"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="660" fill="#fafbfc"/>
+  <text x="600" y="34" font-size="22" font-weight="bold" fill="#1f4e79" text-anchor="middle">
+    Route to Live - CI/CD Pipeline
+  </text>
+
+  <!-- Developer -->
+  <rect x="40" y="100" width="160" height="80" rx="6" fill="#fff" stroke="#1f4e79"/>
+  <text x="120" y="128" font-size="13" font-weight="bold" text-anchor="middle">Developer</text>
+  <text x="120" y="150" font-size="11" text-anchor="middle">Feature branch</text>
+  <text x="120" y="168" font-size="11" text-anchor="middle">Pull request</text>
+
+  <!-- Source -->
+  <rect x="240" y="100" width="180" height="80" rx="6" fill="#e7f1fb" stroke="#1f4e79"/>
+  <text x="330" y="128" font-size="13" font-weight="bold" text-anchor="middle">GitHub / Azure Repos</text>
+  <text x="330" y="150" font-size="11" text-anchor="middle">trunk-based</text>
+  <text x="330" y="168" font-size="11" text-anchor="middle">protected main branch</text>
+
+  <!-- CI -->
+  <rect x="460" y="100" width="200" height="200" rx="6" fill="#fff7e6" stroke="#b06b00" stroke-width="1.5"/>
+  <text x="560" y="125" font-size="13" font-weight="bold" text-anchor="middle">CI - GitHub Actions</text>
+  <text x="560" y="148" font-size="11" text-anchor="middle">mvn verify</text>
+  <text x="560" y="166" font-size="11" text-anchor="middle">unit + integration tests</text>
+  <text x="560" y="184" font-size="11" text-anchor="middle">SonarQube scan</text>
+  <text x="560" y="202" font-size="11" text-anchor="middle">Trivy / Snyk SAST</text>
+  <text x="560" y="220" font-size="11" text-anchor="middle">jib build container</text>
+  <text x="560" y="238" font-size="11" text-anchor="middle">SBOM (CycloneDX)</text>
+  <text x="560" y="256" font-size="11" text-anchor="middle">cosign sign image</text>
+  <text x="560" y="280" font-size="10" fill="#666" text-anchor="middle">PR gate: all green</text>
+
+  <!-- Registry -->
+  <rect x="700" y="100" width="180" height="80" rx="6" fill="#e3f2fd" stroke="#0d47a1"/>
+  <text x="790" y="128" font-size="13" font-weight="bold" text-anchor="middle">ACR (Premium)</text>
+  <text x="790" y="150" font-size="11" text-anchor="middle">image + signature</text>
+  <text x="790" y="168" font-size="11" text-anchor="middle">geo-replicated</text>
+
+  <!-- ArgoCD / GitOps -->
+  <rect x="700" y="220" width="180" height="80" rx="6" fill="#e8f5e9" stroke="#1b5e20"/>
+  <text x="790" y="248" font-size="13" font-weight="bold" text-anchor="middle">GitOps (ArgoCD)</text>
+  <text x="790" y="270" font-size="11" text-anchor="middle">env config repo</text>
+  <text x="790" y="288" font-size="11" text-anchor="middle">declarative state</text>
+
+  <!-- Environments -->
+  <g>
+    <rect x="940" y="80" width="220" height="80" rx="6" fill="#fff" stroke="#1f4e79"/>
+    <text x="1050" y="105" font-size="13" font-weight="bold" text-anchor="middle">DEV</text>
+    <text x="1050" y="127" font-size="11" text-anchor="middle">auto-deploy on green</text>
+    <text x="1050" y="145" font-size="11" text-anchor="middle">smoke tests</text>
+
+    <rect x="940" y="180" width="220" height="80" rx="6" fill="#fff" stroke="#1f4e79"/>
+    <text x="1050" y="205" font-size="13" font-weight="bold" text-anchor="middle">UAT</text>
+    <text x="1050" y="227" font-size="11" text-anchor="middle">tag promotion</text>
+    <text x="1050" y="245" font-size="11" text-anchor="middle">acceptance + perf</text>
+
+    <rect x="940" y="280" width="220" height="80" rx="6" fill="#fff" stroke="#1f4e79"/>
+    <text x="1050" y="305" font-size="13" font-weight="bold" text-anchor="middle">PRE-PROD</text>
+    <text x="1050" y="327" font-size="11" text-anchor="middle">prod-like data</text>
+    <text x="1050" y="345" font-size="11" text-anchor="middle">load + DR drill</text>
+
+    <rect x="940" y="380" width="220" height="80" rx="6" fill="#fff3e0" stroke="#bf360c" stroke-width="1.5"/>
+    <text x="1050" y="405" font-size="13" font-weight="bold" text-anchor="middle">PROD</text>
+    <text x="1050" y="427" font-size="11" text-anchor="middle">manual approval gate</text>
+    <text x="1050" y="445" font-size="11" text-anchor="middle">canary + progressive</text>
+  </g>
+
+  <!-- Quality gates -->
+  <rect x="240" y="380" width="640" height="180" rx="6" fill="#ede7f6" stroke="#311b92" stroke-width="1.5"/>
+  <text x="560" y="405" font-size="14" font-weight="bold" text-anchor="middle">Minimum Requirements (Route-to-Live)</text>
+  <text x="280" y="430" font-size="11">- Unit + integration test coverage &gt;= 80%</text>
+  <text x="280" y="448" font-size="11">- All static analysis findings triaged (SonarQube quality gate)</text>
+  <text x="280" y="466" font-size="11">- No HIGH/CRITICAL CVE in image (Trivy)</text>
+  <text x="280" y="484" font-size="11">- SBOM published, image signed with Cosign</text>
+  <text x="280" y="502" font-size="11">- Health/readiness endpoints implemented + probed in cluster</text>
+  <text x="280" y="520" font-size="11">- Structured JSON logs with correlationId, traceId, service, env</text>
+  <text x="280" y="538" font-size="11">- OpenTelemetry traces flowing to Application Insights</text>
+  <text x="280" y="556" font-size="11">- Network policy + AuthorizationPolicy in place; default-deny by ns</text>
+
+  <!-- Arrows -->
+  <line x1="200" y1="140" x2="240" y2="140" stroke="#1f4e79" stroke-width="1.5" marker-end="url(#a4)"/>
+  <line x1="420" y1="140" x2="460" y2="140" stroke="#1f4e79" stroke-width="1.5" marker-end="url(#a4)"/>
+  <line x1="660" y1="140" x2="700" y2="140" stroke="#1f4e79" stroke-width="1.5" marker-end="url(#a4)"/>
+  <line x1="660" y1="200" x2="700" y2="240" stroke="#1f4e79" stroke-width="1.5" marker-end="url(#a4)"/>
+
+  <line x1="880" y1="140" x2="940" y2="120" stroke="#1f4e79" stroke-width="1" marker-end="url(#a4)"/>
+  <line x1="880" y1="260" x2="940" y2="220" stroke="#1f4e79" stroke-width="1" marker-end="url(#a4)"/>
+
+  <line x1="1050" y1="160" x2="1050" y2="180" stroke="#1f4e79" stroke-width="1.5" marker-end="url(#a4)"/>
+  <line x1="1050" y1="260" x2="1050" y2="280" stroke="#1f4e79" stroke-width="1.5" marker-end="url(#a4)"/>
+  <line x1="1050" y1="360" x2="1050" y2="380" stroke="#bf360c" stroke-width="1.5" marker-end="url(#a4)"/>
+</svg>

@@ -1,0 +1,13 @@
+config {
+  type: "view",
+  schema: "raw",
+  name: "raw_customers",
+  description: "BigQuery raw customer export."
+}
+
+SELECT
+  customer_id,
+  full_name,
+  segment,
+  country
+FROM `retail_raw.customers`

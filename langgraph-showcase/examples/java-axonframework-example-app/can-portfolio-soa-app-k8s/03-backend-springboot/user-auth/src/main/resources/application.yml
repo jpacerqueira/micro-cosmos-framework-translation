@@ -1,0 +1,28 @@
+spring:
+  application: { name: user-auth }
+  datasource:
+    url:      ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/can_app?currentSchema=user_mgmt}
+    username: ${SPRING_DATASOURCE_USERNAME:canadmin}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+  jpa:
+    hibernate.ddl-auto: validate
+    open-in-view: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/${AAD_TENANT_ID:common}/v2.0
+          audiences:  ${AAD_CLIENT_ID:api://can}
+
+app:
+  b2b:
+    redirect-url: ${APP_HOMEPAGE_URL:https://app.example.com/auth/callback}
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  server.port: 8081
+  endpoints.web.exposure.include: health,info,prometheus,metrics
+  endpoint.health.probes.enabled: true

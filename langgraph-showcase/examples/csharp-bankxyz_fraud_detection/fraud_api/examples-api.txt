@@ -1,0 +1,179 @@
+BankXYZ Fraud Detection API — cURL Examples
+===========================================
+Base URL: http://localhost:8080/api/v1
+
+All requests use Content-Type: application/json.
+The API is identical for both the Java and C# implementations.
+
+
+---------------------------------------------------------------------------
+Scenario 1: Low-risk ChipPin transaction (APPROVE expected)
+  Account: ACC0000001 (John Smith, active)
+  Merchant: MCH00001 (LOW risk)
+  Amount: £49.99 (below low threshold)
+  Channel: CHIPPIN (profile weight zeroed)
+  Expected score: ~0.09-0.15
+---------------------------------------------------------------------------
+curl -s -X POST http://localhost:8080/api/v1/authorise \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txnId":        "TXN0000000000001",
+    "acctNo":       "ACC0000001",
+    "txnAmount":    49.99,
+    "merchantCode": "MCH00001",
+    "channel":      "CHIPPIN",
+    "txnCountry":   "GBR",
+    "cardType":     "VI",
+    "cnpFlag":      false
+  }'
+
+Expected response:
+{
+  "txnId":      "TXN0000000000001",
+  "decision":   "APPROVE",
+  "returnCode": "00",
+  "fraudScore": 0.1000,
+  "message":    "TRANSACTION APPROVED",
+  "elapsedMs":  12
+}
+
+
+---------------------------------------------------------------------------
+Scenario 2: High-value CNP transaction in unusual country (REVIEW/DECLINE)
+  Account: ACC0000002 (Jane Doe, active, usual country GBR)
+  Merchant: MCH00002 (HIGH risk)
+  Amount: £7500 (above high threshold)
+  Channel: ONLINE
+  Country: USA (differs from profile)
+  CNP: true
+  Pre-loaded with 5 velocity transactions
+  Expected score: ~0.85-0.95+
+---------------------------------------------------------------------------
+curl -s -X POST http://localhost:8080/api/v1/authorise \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txnId":        "TXN0000000000002",
+    "acctNo":       "ACC0000002",
+    "txnAmount":    7500.00,
+    "merchantCode": "MCH00002",
+    "channel":      "ONLINE",
+    "txnCountry":   "USA",
+    "cardType":     "MC",
+    "cnpFlag":      true
+  }'
+
+Expected response:
+{
+  "txnId":      "TXN0000000000002",
+  "decision":   "DECLINE",
+  "returnCode": "10",
+  "fraudScore": 0.9500,
+  "message":    "TRANSACTION DECLINED",
+  "elapsedMs":  18
+}
+
+
+---------------------------------------------------------------------------
+Scenario 3: Frozen account (ESCALATED, score 1.0)
+  Account: FROZENACCT (status F = Frozen)
+  Merchant: MCH00001
+  Amount: £10.00
+  Expected: immediate score 1.0, ESCALATED status
+---------------------------------------------------------------------------
+curl -s -X POST http://localhost:8080/api/v1/authorise \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txnId":        "TXN0000000000003",
+    "acctNo":       "FROZENACCT",
+    "txnAmount":    10.00,
+    "merchantCode": "MCH00001",
+    "channel":      "ATM",
+    "txnCountry":   "GBR",
+    "cardType":     "VI",
+    "cnpFlag":      false
+  }'
+
+Expected response:
+{
+  "txnId":      "TXN0000000000003",
+  "decision":   "DECLINE",
+  "returnCode": "10",
+  "fraudScore": 1.0000,
+  "message":    "TRANSACTION DECLINED",
+  "elapsedMs":  5
+}
+
+
+---------------------------------------------------------------------------
+Scenario 4: Blocked merchant (score 1.0 from merchant signal alone)
+  Account: ACC0000001 (John Smith, active)
+  Merchant: MCH00003 (BLOCKED_FLAG = Y)
+  Amount: £50.00
+  Expected: merchant score = 1.0, composite = 1.0, DECLINE
+---------------------------------------------------------------------------
+curl -s -X POST http://localhost:8080/api/v1/authorise \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txnId":        "TXN0000000000004",
+    "acctNo":       "ACC0000001",
+    "txnAmount":    50.00,
+    "merchantCode": "MCH00003",
+    "channel":      "ONLINE",
+    "txnCountry":   "GBR",
+    "cardType":     "VI",
+    "cnpFlag":      false
+  }'
+
+Expected response:
+{
+  "txnId":      "TXN0000000000004",
+  "decision":   "DECLINE",
+  "returnCode": "10",
+  "fraudScore": 1.0000,
+  "message":    "TRANSACTION DECLINED",
+  "elapsedMs":  8
+}
+
+
+---------------------------------------------------------------------------
+Scenario 5: Watchlist INTERNAL hit (Bob Wilson on INTERNAL watchlist)
+  Account: ACC0000003 (Bob Wilson — seed data includes INTERNAL watchlist entry)
+  Merchant: MCH00001
+  Amount: £80.00
+  Expected: watchlist score = 0.8, composite elevated, likely REVIEW or DECLINE
+---------------------------------------------------------------------------
+curl -s -X POST http://localhost:8080/api/v1/authorise \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txnId":        "TXN0000000000005",
+    "acctNo":       "ACC0000003",
+    "txnAmount":    80.00,
+    "merchantCode": "MCH00001",
+    "channel":      "ATM",
+    "txnCountry":   "GBR",
+    "cardType":     "MC",
+    "cnpFlag":      false
+  }'
+
+Expected response:
+{
+  "txnId":      "TXN0000000000005",
+  "decision":   "REVIEW",
+  "returnCode": "20",
+  "fraudScore": 0.8000,
+  "message":    "TRANSACTION UNDER REVIEW",
+  "elapsedMs":  14
+}
+
+
+---------------------------------------------------------------------------
+Scenario 6: Trigger batch processing manually
+  Processes all pending TXN_QUEUE records (TXN_STATUS = 'P').
+  Normal schedule: daily at 02:00 local time.
+---------------------------------------------------------------------------
+curl -s -X POST http://localhost:8080/api/v1/batch/run
+
+Expected response:
+{
+  "message": "Batch complete: 0 processed, 0 alerts raised in 3ms"
+}

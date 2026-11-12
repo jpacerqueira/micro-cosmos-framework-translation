@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "micro-cosmos"
+version = "0.1.0"
+description = "Micro-Cosmos — neurosymbolic code modernisation pipeline on LangGraph + a LiteLLM gateway"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Micro-Cosmos" }]
+
+dependencies = [
+    # LangGraph agent loop. LiteLLM speaks OpenAI /v1 to the Compose gateway
+    # and vertex_ai/ when LLM_ENGINE=vertex. google-adk is not used here.
+    "langgraph>=1.0",
+    "litellm>=1.40.0",
+
+    # Schema + validation
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+
+    # Graph
+    "networkx>=3.2",
+    "numpy>=1.26",
+
+    # Artifact serialisation
+    "toons>=0.1",
+
+    # Web UI
+    "fastapi>=0.115",
+    "starlette>=0.41,<1.0",
+    # anyio 4.15 deprecates anyio.abc.BlockingPortal, which Starlette's
+    # TestClient still references. Pin below that so pytest -W error stays quiet.
+    "anyio>=4.4,<4.15",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "websockets>=13",
+    "itsdangerous>=2.1",  # required by starlette.middleware.sessions.SessionMiddleware
+
+    # CLI
+    "typer>=0.12",
+    "rich>=13.7",
+
+    # RAG — spec documentation retrieval
+    # chromadb pulls in opentelemetry; pin to the version google-adk requires.
+    "chromadb>=0.5",
+    "sentence-transformers>=2.7",
+
+    # Vector index for semantic IR-node lookup (fuzzy annotation merging)
+    "faiss-cpu>=1.8.0",
+    "pdfplumber>=0.11",
+    "html2text>=2024.2",
+    "opentelemetry-api==1.41.1",
+    "opentelemetry-sdk==1.41.1",
+
+    # Tree-sitter deep parser for C (observer_tools.py's _parse_c_ts_file) —
+    # confirmed previously undeclared for Java/C#'s own tree-sitter parsers
+    # too (tree-sitter/tree-sitter-java/tree-sitter-c-sharp), meaning those
+    # richer parsers have likely never actually run in the real container,
+    # only in ad-hoc local dev environments that happen to have them
+    # installed. Declaring it here for C rather than repeating that gap —
+    # Java/C#'s own missing declarations are a separate, pre-existing issue,
+    # not fixed by this addition.
+    "tree-sitter>=0.23",
+    "tree-sitter-c>=0.23",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+micro-cosmos = "micro_cosmos.cli:app"
+micro-cosmos-run = "micro_cosmos.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["micro_cosmos*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+lint.select = ["E", "F", "W", "I", "B", "UP"]
+lint.ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]

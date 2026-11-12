@@ -1,0 +1,200 @@
+version: '3.8'
+
+services:
+  oracle-db:
+    image: gvenzl/oracle-xe:21-slim
+    environment:
+      ORACLE_PASSWORD: Oracle_123
+      APP_USER: canapp
+      APP_USER_PASSWORD: canapp123
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 20s
+      retries: 10
+
+  activemq:
+    image: apache/activemq-classic:5.18.3
+    ports:
+      - "61616:61616"
+      - "8161:8161"
+
+  elasticsearch:
+    image: elasticsearch:7.17.0
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+
+  kibana:
+    image: kibana:7.17.0
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+  filebeat:
+    image: elastic/filebeat:7.17.0
+    user: root
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    depends_on:
+      - elasticsearch
+
+  db-migrate:
+    image: flyway/flyway:9-alpine
+    command: migrate
+    environment:
+      FLYWAY_URL: jdbc:oracle:thin:@oracle-db:1521/XEPDB1
+      FLYWAY_USER: canapp
+      FLYWAY_PASSWORD: canapp123
+      FLYWAY_SCHEMAS: CANAPP
+    volumes:
+      - ./can-portfolio-legacy-app/property-allocation/src/main/resources/db/migration:/flyway/sql
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+
+  property-allocation:
+    build:
+      context: ./can-portfolio-legacy-app
+      dockerfile: Dockerfile
+      args:
+        SERVICE: property-allocation
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle-db:1521/XEPDB1
+      SPRING_DATASOURCE_USERNAME: canapp
+      SPRING_DATASOURCE_PASSWORD: canapp123
+      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
+      SERVICE_NAME: property-allocation
+      ENVIRONMENT: local
+    ports:
+      - "8002:8002"
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      activemq:
+        condition: service_started
+
+  user-auth:
+    build:
+      context: ./can-portfolio-legacy-app
+      dockerfile: Dockerfile
+      args:
+        SERVICE: user-auth
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle-db:1521/XEPDB1
+      SPRING_DATASOURCE_USERNAME: canapp
+      SPRING_DATASOURCE_PASSWORD: canapp123
+      JWT_SECRET: local-dev-secret-key-32chars-min!!
+      SERVICE_NAME: user-auth
+      ENVIRONMENT: local
+    ports:
+      - "8001:8001"
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+
+  vdr-ingestion:
+    build:
+      context: ./can-portfolio-legacy-app
+      dockerfile: Dockerfile
+      args:
+        SERVICE: vdr-ingestion
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle-db:1521/XEPDB1
+      SPRING_DATASOURCE_USERNAME: canapp
+      SPRING_DATASOURCE_PASSWORD: canapp123
+      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
+      SERVICE_NAME: vdr-ingestion
+      ENVIRONMENT: local
+    ports:
+      - "8003:8003"
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      activemq:
+        condition: service_started
+
+  workflow:
+    build:
+      context: ./can-portfolio-legacy-app
+      dockerfile: Dockerfile
+      args:
+        SERVICE: workflow
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle-db:1521/XEPDB1
+      SPRING_DATASOURCE_USERNAME: canapp
+      SPRING_DATASOURCE_PASSWORD: canapp123
+      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
+      SERVICE_NAME: workflow
+      ENVIRONMENT: local
+    ports:
+      - "8004:8004"
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      activemq:
+        condition: service_started
+
+  search:
+    build:
+      context: ./can-portfolio-legacy-app
+      dockerfile: Dockerfile
+      args:
+        SERVICE: search
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle-db:1521/XEPDB1
+      SPRING_DATASOURCE_USERNAME: canapp
+      SPRING_DATASOURCE_PASSWORD: canapp123
+      SERVICE_NAME: search
+      ENVIRONMENT: local
+    ports:
+      - "8005:8005"
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+
+  webapp-bff:
+    build:
+      context: ./can-portfolio-legacy-app
+      dockerfile: Dockerfile
+      args:
+        SERVICE: webapp-bff
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      PROPERTY_ALLOCATION_URL: http://property-allocation:8002
+      USER_AUTH_URL: http://user-auth:8001
+      SEARCH_URL: http://search:8005
+      VDR_INGESTION_URL: http://vdr-ingestion:8003
+      WORKFLOW_URL: http://workflow:8004
+      SERVICE_NAME: webapp-bff
+      ENVIRONMENT: local
+    ports:
+      - "8080:8080"
+    depends_on:
+      - property-allocation
+      - user-auth
+      - search
+
+  frontend:
+    build: ./00-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - webapp-bff
+
+volumes:
+  oracle-data:

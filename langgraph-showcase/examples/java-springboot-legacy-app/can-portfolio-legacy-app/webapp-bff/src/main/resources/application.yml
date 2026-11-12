@@ -1,0 +1,39 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: webapp-bff
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+services:
+  property-allocation:
+    url: ${PROPERTY_ALLOCATION_URL:http://localhost:8002}
+  user-auth:
+    url: ${USER_AUTH_URL:http://localhost:8001}
+  search:
+    url: ${SEARCH_URL:http://localhost:8005}
+  vdr-ingestion:
+    url: ${VDR_INGESTION_URL:http://localhost:8003}
+  workflow:
+    url: ${WORKFLOW_URL:http://localhost:8004}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  config: classpath:log4j2-spring.xml
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration

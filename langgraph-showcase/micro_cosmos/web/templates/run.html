@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+{% block title %}Run {{ run_id }} · Micro-Cosmos{% endblock %}
+{% block body_class %}run-page{% endblock %}
+{% block body %}
+<div class="run-shell">
+
+  <div class="run-meta">
+    <div class="run-header">
+      <h1>Run <code>{{ run_id }}</code></h1>
+      <div class="meta">
+        <span>{{ run.source_lang }} · <code>{{ run.source_path }}</code></span>
+        <span>→ {{ run.target_lang }}</span>
+        <span class="run-mode-badge {% if run.skip_llm %}mode-det{% else %}mode-llm{% endif %}">
+          {% if run.skip_llm %}Deterministic{% else %}LLM{% endif %}
+        </span>
+        {% if run.auto_approve_gates %}
+        <span class="run-mode-badge auto-approve-badge" title="Approver on record: {{ run.auto_approve_reviewer_name }}">Auto-approve ON</span>
+        {% endif %}
+        {% if run.github_url %}
+        <a class="run-mode-badge github-source-badge" href="{{ run.github_url }}" target="_blank" rel="noopener noreferrer">GitHub source ↗</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="phase-strip" id="phase-strip">
+      {% for p in ["observer", "gate_1", "cartographer", "gate_2", "architect", "gate_3", "security", "gate_4", "feature_specifier", "gate_4_5", "code_writer", "skeptical_review", "test_review", "functional_review", "writer", "pr_reviewer", "gate_5"] %}
+        <div class="phase-pill" data-phase="{{ p }}">{{ p.replace("_", " ") }}</div>
+      {% endfor %}
+    </div>
+    <div class="reports-menu" id="reports-menu">
+      <button class="reports-menu-btn" id="reports-menu-btn" aria-haspopup="true" aria-expanded="false">Reports Skills and Code ▾</button>
+      <ul class="reports-menu-list" id="reports-menu-list" role="menu">
+        <li class="reports-menu-group-label">Full download</li>
+        <li class="reports-menu-full-download">
+          {% if zip_full_ready %}
+          <a class="reports-menu-item"
+             id="dl-link-full"
+             href="/runs/{{ run_id }}/download/full"
+             download="{{ run_id }}_full.zip">⬇ {{ run_id }}_full.zip</a>
+          {% endif %}
+          <button class="reports-menu-item dl-regen-btn"
+                  data-folder-type="full"
+                  data-folder-name="{{ run_id }}_full"
+                  data-link-id="dl-link-full">⚡ {% if zip_full_ready %}Regenerate{% else %}Generate{% endif %} {{ run_id }}_full.zip</button>
+          <a class="reports-menu-item"
+             href="/runs/{{ run_id }}/browse/full-app-migration-report.html"
+             target="_blank"
+             rel="noopener">Browse reports</a>
+        </li>
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">Stakeholder</li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/executive-summary.html" target="_blank" rel="noopener">Executive summary</a></li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/migration-briefing.html" target="_blank" rel="noopener">Migration briefing</a></li>
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">Technical analysis</li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/project-synthesis.html" target="_blank" rel="noopener">Project synthesis</a></li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/hotspots.html" target="_blank" rel="noopener">Hotspots &amp; coupling</a></li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/dead-code.html" target="_blank" rel="noopener">Dead code &amp; waste</a></li>
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">Legacy &amp; Architecture</li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/architecture-decisions.html" target="_blank" rel="noopener">Architecture decisions</a></li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/fitness-stubs.html" target="_blank" rel="noopener">Fitness test stubs</a></li>
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">Monitoring</li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/monitoring.html" target="_blank" rel="noopener">Telemetry gap analysis</a></li>
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">Security</li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/security-report.html" target="_blank" rel="noopener">Source security analysis</a></li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/output-security-report.html" target="_blank" rel="noopener">Output security scan</a></li>
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">Interactive</li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/ir-graph.html" target="_blank" rel="noopener">IR graph</a></li>
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">Planning</li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/sprint-plan.html" target="_blank" rel="noopener">Migration sprint plan</a></li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/feature-specs.html" target="_blank" rel="noopener">Build output features</a></li>
+        <li>
+          {% if feature_specs_ready %}
+          <a class="reports-menu-item" href="/runs/{{ run_id }}/export/openapi" download="openapi.yaml">⬇ OpenAPI 3.1 spec</a>
+          {% else %}
+          <span class="reports-menu-item reports-menu-item--dim">OpenAPI 3.1 spec</span>
+          {% endif %}
+        </li>
+        <li>
+          {% if feature_specs_ready %}
+          <a class="reports-menu-item" href="/runs/{{ run_id }}/export/jira" download="jira_bulk_import.json">⬇ Jira bulk import</a>
+          {% else %}
+          <span class="reports-menu-item reports-menu-item--dim">Jira bulk import</span>
+          {% endif %}
+        </li>
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">Kiro.dev Powers</li>
+        <li>
+          {% if download_kiro %}
+            {% if zip_kiro_ready %}
+            <a class="reports-menu-item"
+               id="dl-link-kiro"
+               href="/runs/{{ run_id }}/download/kiro"
+               download="{{ download_kiro }}.zip">⬇ {{ download_kiro }}.zip</a>
+            {% endif %}
+            <button class="reports-menu-item dl-regen-btn"
+                    data-folder-type="kiro"
+                    data-folder-name="{{ download_kiro }}"
+                    data-link-id="dl-link-kiro">⚡ {% if zip_kiro_ready %}Regenerate{% else %}Generate{% endif %} {{ download_kiro }}.zip</button>
+          {% else %}
+            <span class="reports-menu-item reports-menu-item--dim">Not yet generated</span>
+          {% endif %}
+        </li>
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">OpenSpec</li>
+        <li>
+          {# Unlike Skills/Kiro (folder name varies with project_dir, so the button
+             only appears once a scan finds it), OpenSpec's folder is always named
+             literally "openspec" (_OPENSPEC_FOLDER) — the button can render
+             unconditionally, and generate_zip's backend force-generates content on
+             every click regardless of whether the folder exists yet, making the very
+             first click self-sufficient (e.g. a deterministic-mode run, or one that
+             hasn't reached Gate 4.5) instead of requiring driver.py's automatic call
+             to have already run first. #}
+          {% if zip_openspec_ready %}
+          <a class="reports-menu-item"
+             id="dl-link-openspec"
+             href="/runs/{{ run_id }}/download/openspec"
+             download="openspec.zip">⬇ openspec.zip</a>
+          {% endif %}
+          <button class="reports-menu-item dl-regen-btn"
+                  data-folder-type="openspec"
+                  data-folder-name="openspec"
+                  data-link-id="dl-link-openspec">⚡ {% if zip_openspec_ready %}Regenerate{% else %}Generate{% endif %} openspec.zip</button>
+        </li>
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">Claude Code skills</li>
+        <li>
+          {% if download_skills %}
+            {% if zip_skills_ready %}
+            <a class="reports-menu-item"
+               id="dl-link-skills"
+               href="/runs/{{ run_id }}/download/skills"
+               download="{{ download_skills }}.zip">⬇ {{ download_skills }}.zip</a>
+            {% endif %}
+            <button class="reports-menu-item dl-regen-btn"
+                    data-folder-type="skills"
+                    data-folder-name="{{ download_skills }}"
+                    data-link-id="dl-link-skills">⚡ {% if zip_skills_ready %}Regenerate{% else %}Generate{% endif %} {{ download_skills }}.zip</button>
+          {% else %}
+            <span class="reports-menu-item reports-menu-item--dim">Not yet generated</span>
+          {% endif %}
+        </li>
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">Translated code</li>
+        <li>
+          {% if download_output %}
+            {% if zip_output_ready %}
+            <a class="reports-menu-item"
+               id="dl-link-output"
+               href="/runs/{{ run_id }}/download/output"
+               download="{{ download_output }}.zip">⬇ {{ download_output }}.zip</a>
+            {% endif %}
+            <button class="reports-menu-item dl-regen-btn"
+                    data-folder-type="output"
+                    data-folder-name="{{ download_output }}"
+                    data-link-id="dl-link-output">⚡ {% if zip_output_ready %}Regenerate{% else %}Generate{% endif %} {{ download_output }}.zip</button>
+          {% else %}
+            <span class="reports-menu-item reports-menu-item--dim">Not yet generated</span>
+          {% endif %}
+        </li>
+
+        <li class="reports-menu-separator" role="separator"></li>
+        <li class="reports-menu-group-label">Full report</li>
+        <li><a class="reports-menu-item" href="/runs/{{ run_id }}/files/full-app-migration-report.html" target="_blank" rel="noopener">Full report</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="pipeline-progress" id="pipeline-progress" hidden></div>
+  <div class="live-status" id="live-status" hidden>
+    <span class="live-dot"></span>
+    <span class="live-text" id="live-text"></span>
+  </div>
+  {% if not run.skip_llm %}
+  <div class="run-controls" id="run-controls" hidden>
+    <form id="tdd-stop-form"
+          hx-post="/runs/{{ run_id }}/stop-tdd-loop"
+          hx-target="#tdd-stop-result"
+          hx-swap="innerHTML"
+          hx-confirm="Stop the TDD writer loop now? Seams still in progress will be marked failed; PR review will proceed with whatever seams already completed.">
+      <button type="submit" class="stop-btn" title="Stop the TDD writer loop — PR review proceeds with completed seams">⏹ Stop TDD loop</button>
+    </form>
+    <span id="tdd-stop-result"></span>
+  </div>
+  {% endif %}
+
+  <div class="dashboard">
+
+    <!-- Left column: tabbed panels -->
+    <div class="tab-pane-area">
+      <div class="tab-bar" role="tablist">
+        <button class="tab-btn active" data-tab="gates" role="tab">Gates</button>
+        <button class="tab-btn" data-tab="seams" role="tab">Seams<span class="tab-badge" id="seam-tab-badge"></span></button>
+        <button class="tab-btn" data-tab="artifacts" role="tab">Artifacts</button>
+        <button class="tab-btn" data-tab="chat" role="tab">Ask</button>
+        <button class="tab-btn" data-tab="processing" role="tab">Processing<span class="tab-badge" id="processing-tab-badge"></span></button>
+        <button class="tab-btn" data-tab="diagnostics" role="tab">
+          Diagnostics<span class="tab-badge" id="diag-tab-badge"></span>
+        </button>
+        <button class="tab-btn" data-tab="trace" role="tab">Trace<span class="tab-badge" id="trace-tab-badge"></span></button>
+      </div>
+
+      <div class="tab-panel active" id="tab-gates" role="tabpanel">
+        <div id="gates"><p class="hint">No gates open yet.</p></div>
+      </div>
+
+      <div class="tab-panel tab-seams" id="tab-seams" role="tabpanel">
+        <div id="seam-feed">
+          <p class="hint">Seams appear after the Observer phase completes.</p>
+        </div>
+        <div class="seam-target-section">
+          <h3 class="seam-target-heading">Target architecture &amp; features</h3>
+          <div id="target-feed">
+            <p class="hint">Target architecture appears after the Architect phase completes.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel tab-artifacts" id="tab-artifacts" role="tabpanel">
+        <div id="artifacts">
+          <button class="art-btn" data-key="ir_graph">IR graph</button>
+          <button class="art-btn" data-key="bounded_context_map">Bounded contexts</button>
+          <button class="art-btn" data-key="seam">Seam report</button>
+          <button class="art-btn" data-key="work_streams">Work streams</button>
+          <button class="art-btn" data-key="tnas">TNAS · fitness suite</button>
+          <button class="art-btn" data-key="security_report">Security report</button>
+          <button class="art-btn" data-key="trivy_report">Input Trivy scan</button>
+          <button class="art-btn" data-key="review_report">PR review report</button>
+          <button class="art-btn" data-key="trivy_output_report">Output Trivy scan</button>
+        </div>
+        <div id="artifact-view" class="artifact-view">Click an artifact to inspect.</div>
+      </div>
+
+      <div class="tab-panel tab-chat" id="tab-chat" role="tabpanel">
+        <div class="chat-panel">
+          <div class="chat-history" id="chat-history"></div>
+          <form class="chat-form" id="chat-form" autocomplete="off">
+            <input
+              class="chat-input"
+              id="chat-input"
+              type="text"
+              placeholder="Ask anything about this run… e.g. 'What is FraudCommArea and why is it risky?'"
+              autocomplete="off"
+            />
+            <button class="chat-send" type="submit">Ask</button>
+          </form>
+          <p class="chat-hint">Grounded in all phases and gate decisions — analysis, code generation, and PR review. Ask follow-up questions about security findings, seams, or generated code quality. Context carries over between turns.</p>
+        </div>
+      </div>
+
+      <div class="tab-panel tab-processing" id="tab-processing" role="tabpanel">
+        <div id="processing-table-wrap">
+          <p class="hint">Seam processing status appears once seam translation begins.</p>
+        </div>
+      </div>
+
+      <div class="tab-panel tab-diagnostics" id="tab-diagnostics" role="tabpanel">
+        <div class="diag-summary">
+          <span class="diag-pill diag-pill-error" id="diag-count-error">0 errors</span>
+          <span class="diag-pill diag-pill-warning" id="diag-count-warning">0 warnings</span>
+          <span class="diag-pill diag-pill-debug" id="diag-count-debug">0 debug</span>
+          <button id="diag-clear" class="diag-clear">Clear</button>
+        </div>
+        <div id="diagnostics-feed" class="diagnostics-feed">
+          <p class="diag-empty">No diagnostic events yet.</p>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-trace" role="tabpanel">
+        <div id="trace"></div>
+      </div>
+    </div>
+
+    <div class="dashboard-resizer" role="separator" aria-orientation="vertical" aria-label="Resize graph panel" tabindex="0"></div>
+
+    <!-- Right column: IR property graph -->
+    <div class="graph-panel panel">
+      <div class="panel-hdr">
+        <span class="panel-title">IR property graph</span>
+        <div class="graph-controls">
+          <button class="graph-level-btn active" data-level="summary" title="Repo map: one node per file">Repo map</button>
+          <button class="graph-level-btn" data-level="full" title="Full detail: every node and edge">Full detail</button>
+          <button class="graph-fit-btn" title="Fit graph to window">⊡ Fit</button>
+        </div>
+      </div>
+      <div id="cy"></div>
+      <div id="graph-tooltip" class="graph-tooltip" hidden>
+        <div class="gt-name"></div>
+        <div class="gt-summary"></div>
+        <div class="gt-params"></div>
+        <div class="gt-output"></div>
+        <div class="gt-seam" hidden></div>
+      </div>
+      <div class="legend">
+        <span class="dot dot-program"></span> file
+        <span class="dot dot-class"></span> class
+        <span class="dot dot-procedure"></span> method
+        <span class="dot dot-data"></span> data
+        <span class="dot dot-state"></span> state
+        <span class="dot dot-external"></span> external
+        <span class="legend-sep"></span>
+        <span class="dot dot-seam-boundary"></span> boundary seam
+        <span class="dot dot-seam-object"></span> object seam
+        <span class="dot dot-seam-preprocessing"></span> preprocessing seam
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  window.SOURCE_RUN_ID = "{{ run_id }}";
+  {% if seam_data %}window.SEAM_DATA = {{ seam_data | tojson }};{% endif %}
+  {% if work_streams_data %}window.WORK_STREAMS_DATA = {{ work_streams_data | tojson }};{% endif %}
+</script>
+<script src="{{ static_url('js/dashboard.js') }}"></script>
+{% endblock %}

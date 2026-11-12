@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: oracle-db
+  namespace: can-legacy
+spec:
+  serviceName: oracle-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle-db
+  template:
+    metadata:
+      labels:
+        app: oracle-db
+    spec:
+      containers:
+      - name: oracle-db
+        image: gvenzl/oracle-xe:21-slim
+        env:
+        - name: ORACLE_PASSWORD
+          value: Oracle_123
+        - name: APP_USER
+          value: canapp
+        - name: APP_USER_PASSWORD
+          value: canapp123
+        ports:
+        - containerPort: 1521
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: oracle-data
+          mountPath: /opt/oracle/oradata
+        readinessProbe:
+          exec:
+            command: ["healthcheck.sh"]
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          failureThreshold: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: oracle-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-db
+  namespace: can-legacy
+spec:
+  selector:
+    app: oracle-db
+  ports:
+  - port: 1521
+    targetPort: 1521
+  clusterIP: None

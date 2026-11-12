@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-bff
+  namespace: can-legacy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: webapp-bff
+  template:
+    metadata:
+      labels:
+        app: webapp-bff
+    spec:
+      containers:
+      - name: webapp-bff
+        image: $(ACR_NAME).azurecr.io/can-legacy/webapp-bff:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: prod
+        - name: SERVICE_NAME
+          value: webapp-bff
+        - name: ENVIRONMENT
+          value: production
+        - name: PROPERTY_ALLOCATION_URL
+          value: http://property-allocation:8002
+        - name: USER_AUTH_URL
+          value: http://user-auth:8001
+        - name: SEARCH_URL
+          value: http://search:8005
+        - name: VDR_INGESTION_URL
+          value: http://vdr-ingestion:8003
+        - name: WORKFLOW_URL
+          value: http://workflow:8004
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "125m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 90
+          periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-bff
+  namespace: can-legacy
+spec:
+  selector:
+    app: webapp-bff
+  ports:
+  - port: 8080
+    targetPort: 8080

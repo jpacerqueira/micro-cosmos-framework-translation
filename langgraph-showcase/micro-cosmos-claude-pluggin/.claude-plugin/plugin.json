@@ -1,0 +1,10 @@
+{
+  "name": "micro-cosmos",
+  "displayName": "Micro-Cosmos",
+  "version": "1.0.0",
+  "description": "Application framework translation that runs the Micro-Cosmos pipeline. Deterministic or LLM mode, using AST, tree-sitter, and regex analysis. Web frameworks: Spring Boot, Axon Framework, NestJS, React, Django, Flask, and ASP.NET Core. Data engineering frameworks: Databricks, Azure Data Factory, BigQuery Dataform, and Snowflake dbt.",
+  "author": {
+    "name": "Joao Pedro Afonso Cerqueira"
+  },
+  "license": "MIT"
+}

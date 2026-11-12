@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://customer-application-name.example.com/schemas/uli-envelope.json",
+  "title": "ULI Envelope",
+  "description": "Universal Layer of Interoperability message envelope. Every message that crosses a service boundary uses this shape.",
+  "type": "object",
+  "required": ["messageId", "correlationId", "subject", "type", "source", "timestamp", "payload"],
+  "additionalProperties": false,
+  "properties": {
+    "messageId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique per message - used by consumer inbox tables for idempotency."
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Shared across all messages in one logical request."
+    },
+    "causationId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "messageId of the message that caused this one."
+    },
+    "subject": {
+      "type": "string",
+      "pattern": "^uli\\.(commands|events|queries|dlq)\\.[a-z0-9-]+(\\.[A-Za-z0-9_-]+)+$",
+      "description": "Hierarchical subject path - first segment is always 'uli'."
+    },
+    "type": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Canonical class/record name of the payload."
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Producing service name (e.g. property-allocation)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Arbitrary string metadata - tenant, user, trace context."
+    },
+    "payload": {
+      "description": "The message body. Schema validated separately by `type`."
+    }
+  }
+}

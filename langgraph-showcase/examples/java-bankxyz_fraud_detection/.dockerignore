@@ -1,0 +1,6 @@
+target/
+.git/
+docker/
+oracle/
+*.md
+.env

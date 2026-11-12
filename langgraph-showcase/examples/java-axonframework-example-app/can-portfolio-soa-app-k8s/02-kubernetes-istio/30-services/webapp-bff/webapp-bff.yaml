@@ -1,0 +1,218 @@
+###############################################################################
+# WebApp BFF - Spring Boot/Axon backend exposing GraphQL + REST to the UI.
+# Includes: Deployment, Service, HPA, PDB, NetworkPolicy, AuthorizationPolicy,
+# DestinationRule (mTLS + connection pool + outlier detection), VirtualService.
+###############################################################################
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: webapp-bff
+  namespace: can-app
+  annotations:
+    azure.workload.identity/client-id: "<WORKLOAD_IDENTITY_CLIENT_ID>"
+  labels:
+    azure.workload.identity/use: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-bff
+  namespace: can-app
+  labels: { app: webapp-bff, tier: backend }
+spec:
+  selector: { app: webapp-bff }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080 }
+    - { name: mgmt, port: 8081, targetPort: 8081 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-bff
+  namespace: can-app
+  labels: { app: webapp-bff, tier: backend, version: v1 }
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app: webapp-bff }
+  template:
+    metadata:
+      labels: { app: webapp-bff, tier: backend, version: v1 }
+      annotations:
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/proxyCPU: "100m"
+        sidecar.istio.io/proxyMemory: "128Mi"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      serviceAccountName: webapp-bff
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: app
+          image: <ACR_LOGIN_SERVER>/can/webapp-bff:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: mgmt, containerPort: 8081 }
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: "k8s" }
+            - { name: AXON_AXONSERVER_SERVERS, value: "axonserver.can-system.svc.cluster.local:8124" }
+            - { name: SPRING_DATASOURCE_URL, value: "jdbc:postgresql://<PG_FQDN>:5432/can_app?sslmode=require" }
+            - { name: SPRING_DATASOURCE_USERNAME, value: "canadmin" }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom: { secretKeyRef: { name: pg-credentials, key: password } }
+            - { name: NATS_URL, value: "nats://nats.can-system.svc.cluster.local:4222" }
+            - name: NATS_USER
+              value: "uli-publisher"
+            - name: NATS_PASSWORD
+              valueFrom: { secretKeyRef: { name: nats-creds, key: pub_password } }
+            - { name: AAD_TENANT_ID,  value: "<TENANT_ID>" }
+            - { name: AAD_CLIENT_ID,  value: "<APP_CLIENT_ID>" }
+            - name: AAD_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: aad-creds, key: client_secret } }
+            - { name: APPLICATIONINSIGHTS_CONNECTION_STRING, valueFrom: { secretKeyRef: { name: appinsights, key: connection_string, optional: true } } }
+            - { name: JAVA_TOOL_OPTIONS, value: "-XX:+UseZGC -XX:MaxRAMPercentage=75 -Dfile.encoding=UTF-8" }
+          resources:
+            requests: { cpu: 500m, memory: 1Gi }
+            limits:   { cpu: 2,    memory: 2Gi }
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: mgmt }
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: mgmt }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: mgmt }
+            periodSeconds: 5
+          volumeMounts:
+            - { name: kv, mountPath: /mnt/secrets, readOnly: true }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+      volumes:
+        - name: kv
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: can-kv-secrets
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: { matchLabels: { app: webapp-bff } }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: webapp-bff
+  namespace: can-app
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: webapp-bff
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource: { name: cpu,    target: { type: Utilization, averageUtilization: 60 } }
+    - type: Resource
+      resource: { name: memory, target: { type: Utilization, averageUtilization: 75 } }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: webapp-bff
+  namespace: can-app
+spec:
+  minAvailable: 1
+  selector: { matchLabels: { app: webapp-bff } }
+---
+###############################################################################
+# Istio - mTLS via DestinationRule, connection pool, outlier detection.
+###############################################################################
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: webapp-bff
+  namespace: can-app
+spec:
+  host: webapp-bff.can-app.svc.cluster.local
+  trafficPolicy:
+    tls: { mode: ISTIO_MUTUAL }
+    connectionPool:
+      tcp:  { maxConnections: 200 }
+      http: { http2MaxRequests: 1000, maxRequestsPerConnection: 10 }
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+  subsets:
+    - name: v1
+      labels: { version: v1 }
+---
+# AuthorizationPolicy - only the istio-ingressgateway and other can-app
+# services may call the BFF, with a valid Azure AD JWT.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: webapp-bff-allow
+  namespace: can-app
+spec:
+  selector: { matchLabels: { app: webapp-bff } }
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/istio-ingress/sa/istio-ingressgateway-service-account"
+              - "cluster.local/ns/can-app/sa/webapp-ui"
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://login.microsoftonline.com/<TENANT_ID>/v2.0"]
+---
+###############################################################################
+# NetworkPolicy - belt-and-braces alongside Istio AuthZ.
+###############################################################################
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: webapp-bff
+  namespace: can-app
+spec:
+  podSelector: { matchLabels: { app: webapp-bff } }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: istio-ingress } }
+        - podSelector: { matchLabels: { app: webapp-ui } }
+      ports:
+        - { protocol: TCP, port: 8080 }
+        - { protocol: TCP, port: 8081 } # mgmt for Prometheus
+  egress:
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: can-system } }
+      ports:
+        - { protocol: TCP, port: 8124 } # Axon
+        - { protocol: TCP, port: 4222 } # NATS
+    # Postgres + outbound HTTPS (App Insights, AAD).
+    - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [169.254.0.0/16, 10.0.0.0/8] } }]
+      ports: [{ protocol: TCP, port: 443 }]
+    - ports: [{ protocol: TCP, port: 5432 }]
+    - ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]

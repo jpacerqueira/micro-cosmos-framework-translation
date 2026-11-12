@@ -1,0 +1,155 @@
+project_root/
+|
+|-- src/
+|   |-- etl1.py
+|   |-- utils/
+|   |   |-- __init__.py
+|   |   |-- data_profiler.py
+|
+|-- tests/
+|   |-- test_etl1.py
+|   |-- test_data_profiler.py
+|
+|-- azure_functions/
+|   |-- MyAzureFunction/
+|   |   |-- run.cs
+|   |   |-- function.json
+|   |-- Tests/
+|       |-- MyAzureFunctionTests.cs
+|
+|-- requirements.txt
+|-- README.md
+
+# src/etl1.py
+from utils.data_profiler import DataProfiler
+from pyspark.sql import SparkSession
+
+class ETL1:
+    def __init__(self):
+        self.spark = SparkSession.builder.appName("ETL1Job").getOrCreate()
+
+    def run(self, input_path, output_path, table_name):
+        df = self.spark.read.format("delta").load(input_path)
+        profiler = DataProfiler()
+        expected_schema = profiler.get_expected_schema(table_name)
+        profiler.validate_schema(df, expected_schema)
+        profiler.profile(df)
+        df_clean = df.dropna()
+        df_clean.write.format("delta").mode("overwrite").save(output_path)
+
+# src/utils/data_profiler.py
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+
+class DataProfiler:
+    def get_expected_schema(self, table_name):
+        if table_name == "sample_table":
+            return StructType([
+                StructField("id", IntegerType(), True),
+                StructField("val1", StringType(), True),
+                StructField("val2", StringType(), True),
+                StructField("val3", StringType(), True),
+                StructField("val4", StringType(), True)
+            ])
+        raise ValueError(f"Unknown table name: {table_name}")
+
+    def validate_schema(self, df, expected_schema):
+        if df.schema != expected_schema:
+            raise ValueError("Schema validation failed.")
+
+    def profile(self, df):
+        print(f"Column Count: {len(df.columns)}")
+        df.printSchema()
+        df.describe().show()
+
+# tests/test_etl1.py
+import unittest
+from unittest.mock import patch
+from src.etl1 import ETL1
+
+class TestETL1(unittest.TestCase):
+    @patch("src.etl1.SparkSession")
+    def test_run(self, mock_spark):
+        etl = ETL1()
+        etl.run("input/path", "output/path", "sample_table")
+        self.assertTrue(mock_spark.builder.appName.called)
+
+# tests/test_data_profiler.py
+import unittest
+from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+from src.utils.data_profiler import DataProfiler
+
+class TestDataProfiler(unittest.TestCase):
+    def setUp(self):
+        self.spark = SparkSession.builder.master("local").appName("Test").getOrCreate()
+        self.df = self.spark.createDataFrame([(1, "a"), (2, "b")], ["id", "val"])
+
+    def test_profile(self):
+        profiler = DataProfiler()
+        profiler.profile(self.df)  # Should not raise any errors
+
+    def test_validate_schema(self):
+        profiler = DataProfiler()
+        expected_schema = profiler.get_expected_schema("sample_table")
+        profiler.validate_schema(self.df, expected_schema)  # Should not raise any errors
+
+# azure_functions/MyAzureFunction/run.cs
+using System;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Extensions.Logging;
+
+public static class MyAzureFunction
+{
+    [FunctionName("MyAzureFunction")]
+    public static void Run([TimerTrigger("0 */5 * * * *")] TimerInfo myTimer, ILogger log)
+    {
+        log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
+    }
+}
+
+# azure_functions/MyAzureFunction/function.json
+{
+  "bindings": [
+    {
+      "name": "myTimer",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 */5 * * * *"
+    }
+  ]
+}
+
+# azure_functions/Tests/MyAzureFunctionTests.cs
+using Xunit;
+using Microsoft.Extensions.Logging.Abstractions;
+
+public class MyAzureFunctionTests
+{
+    [Fact]
+    public void TestFunctionRun()
+    {
+        var logger = NullLoggerFactory.Instance.CreateLogger("Test");
+        MyAzureFunction.Run(null, logger);
+    }
+}
+
+# requirements.txt
+pyspark
+pytest
+unittest2
+
+# README.md
+# Azure Databricks & Azure Functions ETL Project
+
+## Structure
+- `src/` contains PySpark ETL code.
+- `utils/` has helper classes like data profiling and schema validation.
+- `tests/` has unit tests.
+- `azure_functions/` holds Azure Functions in C#.
+
+## Running Tests
+```bash
+pytest tests/
+dotnet test azure_functions/Tests/
+```
+

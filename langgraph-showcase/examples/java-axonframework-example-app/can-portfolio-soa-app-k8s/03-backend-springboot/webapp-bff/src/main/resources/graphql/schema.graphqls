@@ -1,0 +1,59 @@
+"""
+WebApp BFF GraphQL schema. This is the contract between the React UI and the
+backend; downstream microservice contracts are intentionally not exposed here.
+"""
+
+scalar UUID
+scalar Date
+scalar BigDecimal
+
+type Portfolio {
+  portfolioId: UUID!
+  name: String!
+  description: String
+  cutOffDate: Date!
+  finalBidDate: Date!
+  projectPhase: String!
+  status: String!
+  properties: [Property!]!
+}
+
+type Property {
+  propertyId: UUID!
+  portfolioId: UUID!
+  name: String!
+  addressLine1: String
+  city: String
+  postcode: String
+  valuation: BigDecimal
+  brokerCompanyId: UUID
+  allocationStatus: String
+}
+
+type Query {
+  portfolio(id: UUID!): Portfolio
+  portfolios(status: String): [Portfolio!]!
+  property(id: UUID!): Property
+}
+
+input CreatePortfolioInput {
+  name: String!
+  description: String
+  cutOffDate: Date!
+  finalBidDate: Date!
+  projectPhase: String!
+}
+
+input AllocatePropertyInput {
+  portfolioId: UUID!
+  propertyId: UUID!
+  brokerCompanyId: UUID!
+  allocationDate: Date!
+  allocationStatus: String!
+}
+
+type Mutation {
+  createPortfolio(input: CreatePortfolioInput!): UUID!
+  allocateProperty(input: AllocatePropertyInput!): Boolean!
+  closePortfolio(portfolioId: UUID!, reason: String): Boolean!
+}

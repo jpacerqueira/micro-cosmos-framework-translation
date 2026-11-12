@@ -1,0 +1,374 @@
+openapi: 3.0.3
+info:
+  title: BankXYZ Fraud Detection API
+  description: |
+    Real-time and batch fraud detection service, migrated from COBOL/CICS/Db2/IBM-MQ
+    on IBM z/OS 2.5. Exposes a composite fraud scoring engine that evaluates five
+    weighted signals (amount, merchant risk, velocity, customer profile, watchlist)
+    and returns an authorisation decision within a 180 ms SLA.
+
+    ### Decision thresholds
+    | Score range       | Decision  | Return code |
+    |-------------------|-----------|-------------|
+    | < 0.75            | APPROVE   | 00          |
+    | >= 0.75           | REVIEW    | 20          |
+    | >= 0.90           | DECLINE   | 10          |
+
+    An SLA breach (elapsed > 180 ms) always overrides to APPROVE and logs a breach
+    record to SLA_BREACH_LOG.
+  version: 1.0.0
+  contact:
+    name: BankXYZ Fraud Engineering
+  license:
+    name: Internal — not for external distribution
+
+servers:
+  - url: http://localhost:8080
+    description: Local Docker Compose environment
+
+tags:
+  - name: authorisation
+    description: Real-time fraud scoring and authorisation decisions
+  - name: batch
+    description: Nightly batch job control (migrated from JCL FDBATCH01)
+
+paths:
+
+  /api/v1/authorise:
+    post:
+      tags:
+        - authorisation
+      operationId: authoriseTransaction
+      summary: Score a transaction and return an authorisation decision
+      description: |
+        Submits a payment transaction for real-time fraud scoring. The engine
+        evaluates five weighted signals:
+
+        | Signal              | Weight | Service                  |
+        |---------------------|--------|--------------------------|
+        | Transaction amount  | 0.25   | FraudRulesService        |
+        | Merchant risk band  | 0.25   | FraudRulesService        |
+        | Velocity (count)    | 0.20   | FraudRulesService        |
+        | Customer profile    | 0.20   | CustomerProfileService   |
+        | Watchlist screening | 0.10   | WatchlistService         |
+
+        **Special cases**
+        - Account status FROZEN or CLOSED forces composite score to 1.0 → DECLINE.
+        - Channel `CHIPPIN` zeroes the profile weight (BAU-2021-09).
+        - If the SLA limit (180 ms) is exceeded the response is always APPROVE and
+          an SLA breach record is persisted.
+        - Scores >= 0.75 create a `FraudAlert` in PENDING state and enqueue a JMS
+          message to `FRAUD.ALERT.QUEUE`.
+
+        **Field format notes** (COBOL legacy alignment)
+        - `txnId` — 16-character fixed-length transaction identifier (PIC X(16))
+        - `acctNo` — 10-character account number (PIC X(10))
+        - `merchantCode` — 8-character merchant code (PIC X(8))
+        - `channel` — case-insensitive; unknown values treated as UNKNOWN
+        - `txnCountry` — ISO 3166-1 alpha-3 (e.g. `GBR`, `USA`)
+        - `cardType` — 2-character code: `DB`=Debit, `CR`=Credit, `PP`=Prepaid
+        - `txnAmount` — must be `BigDecimal`; float/double are never used (COMP-3 invariant)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FraudCheckRequest'
+            examples:
+              approve_domestic:
+                summary: Low-risk domestic debit card purchase
+                value:
+                  txnId: "TXN0000000000001"
+                  acctNo: "ACC0000001"
+                  txnAmount: 45.00
+                  merchantCode: "TESCO001"
+                  channel: "ONLINE"
+                  txnCountry: "GBR"
+                  cardType: "DB"
+                  cnpFlag: true
+              review_high_amount:
+                summary: High-amount transaction likely to trigger REVIEW
+                value:
+                  txnId: "TXN0000000000002"
+                  acctNo: "ACC0000002"
+                  txnAmount: 6500.00
+                  merchantCode: "FOREX999"
+                  channel: "ONLINE"
+                  txnCountry: "USA"
+                  cardType: "CR"
+                  cnpFlag: true
+              decline_watchlist_hit:
+                summary: Transaction from a blocked merchant on a watchlisted account
+                value:
+                  txnId: "TXN0000000000003"
+                  acctNo: "ACC0000003"
+                  txnAmount: 9999.99
+                  merchantCode: "BLCKM001"
+                  channel: "ATM"
+                  txnCountry: "RUS"
+                  cardType: "CR"
+                  cnpFlag: false
+              chippin_channel:
+                summary: CHIPPIN channel — profile weight zeroed (BAU-2021-09)
+                value:
+                  txnId: "TXN0000000000004"
+                  acctNo: "ACC0000004"
+                  txnAmount: 12.50
+                  merchantCode: "CAFEBAR1"
+                  channel: "CHIPPIN"
+                  txnCountry: "GBR"
+                  cardType: "DB"
+                  cnpFlag: false
+      responses:
+        '200':
+          description: |
+            Fraud scoring completed. The HTTP status is always 200 regardless of the
+            authorisation decision — inspect `decision` and `returnCode` to determine
+            the outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FraudCheckResponse'
+              examples:
+                approved:
+                  summary: Transaction approved (low risk)
+                  value:
+                    txnId: "TXN0000000000001"
+                    decision: "APPROVE"
+                    returnCode: "00"
+                    fraudScore: 0.1250
+                    message: "Transaction approved"
+                    elapsedMs: 42
+                review:
+                  summary: Transaction flagged for review
+                  value:
+                    txnId: "TXN0000000000002"
+                    decision: "REVIEW"
+                    returnCode: "20"
+                    fraudScore: 0.8100
+                    message: "Transaction flagged for review"
+                    elapsedMs: 67
+                declined:
+                  summary: Transaction declined (high risk)
+                  value:
+                    txnId: "TXN0000000000003"
+                    decision: "DECLINE"
+                    returnCode: "10"
+                    fraudScore: 0.9450
+                    message: "Transaction declined — high fraud risk"
+                    elapsedMs: 55
+                sla_breach:
+                  summary: SLA exceeded — defaulted to APPROVE
+                  value:
+                    txnId: "TXN0000000000005"
+                    decision: "APPROVE"
+                    returnCode: "00"
+                    fraudScore: 0.0000
+                    message: "SLA EXCEEDED - DEFAULTING TO APPROVE"
+                    elapsedMs: 195
+        '500':
+          description: Unexpected server error during scoring
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/batch/run:
+    post:
+      tags:
+        - batch
+      operationId: triggerBatchJob
+      summary: Manually trigger the nightly fraud batch job
+      description: |
+        Submits the Spring Batch job that mirrors JCL FDBATCH01 (nightly 02:00).
+        The job runs asynchronously via Spring Batch's `JobLauncher` with a unique
+        `runId` parameter per invocation so it can be re-run without conflict.
+
+        The job processes up to `fraud.batch.max-transactions` (default 500) records
+        in chunks of `fraud.batch.chunk-size` (default 100). It reads PENDING
+        transactions from `TXN_QUEUE`, scores them, and writes results to
+        `FRAUD_ALERTS`.
+
+        Under normal operations this job is scheduled via cron (`0 0 2 * * ?`).
+        This endpoint is provided for testing and operational recovery.
+      requestBody:
+        required: false
+        content: {}
+      responses:
+        '200':
+          description: Batch job accepted and submitted to the job launcher
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Batch job submitted"
+        '500':
+          description: Batch job launch failed (e.g. job already running, DB error)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Batch launch failed: Job already running"
+
+components:
+  schemas:
+
+    FraudCheckRequest:
+      type: object
+      description: |
+        Payload for a real-time fraud authorisation check.
+        Field sizes mirror the original COBOL copybook FDCOMMON.cpy.
+      properties:
+        txnId:
+          type: string
+          maxLength: 16
+          description: |
+            Unique transaction identifier. Maps to CA-TXN-ID PIC X(16).
+            Must be unique per transaction; used as the correlation key in
+            FRAUD_ALERTS and MQ messages.
+          example: "TXN0000000000001"
+        acctNo:
+          type: string
+          maxLength: 10
+          description: |
+            Account number. Maps to CA-ACCT-NO PIC X(10).
+            Must exist in ACCOUNT_MASTER. Accounts with status FROZEN or CLOSED
+            receive an automatic DECLINE (score forced to 1.0).
+          example: "ACC0000001"
+        txnAmount:
+          type: number
+          format: decimal
+          description: |
+            Transaction amount in account currency. Maps to CA-TXN-AMOUNT COMP-3 S9(13)V99.
+            Never use float or double — BigDecimal is required to preserve COMP-3 precision.
+          example: 45.00
+        merchantCode:
+          type: string
+          maxLength: 8
+          description: |
+            Merchant identifier. Maps to CA-MERCHANT-CODE PIC X(8).
+            Looked up in MERCHANT_RISK. Unknown codes yield a merchant score of 0.0.
+          example: "TESCO001"
+        channel:
+          type: string
+          maxLength: 8
+          description: |
+            Payment channel. Case-insensitive; unknown values map to UNKNOWN internally.
+            CHIPPIN bypasses profile-deviation scoring (BAU-2021-09).
+          enum:
+            - ATM
+            - ONLINE
+            - BRANCH
+            - CHIPPIN
+            - UNKNOWN
+          example: "ONLINE"
+        txnCountry:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: |
+            ISO 3166-1 alpha-3 country code of the transaction location.
+            Compared against CUST_PROFILE.USUAL_COUNTRY for geolocation deviation.
+          example: "GBR"
+        cardType:
+          type: string
+          maxLength: 2
+          description: |
+            Card type code. Maps to HV-CARD-TYPE PIC X(2).
+            DB = Debit, CR = Credit, PP = Prepaid.
+          enum:
+            - DB
+            - CR
+            - PP
+          example: "DB"
+        cnpFlag:
+          type: boolean
+          description: |
+            Card-not-present flag. Maps to HV-CNP-FLAG.
+            true = card was not physically present (e-commerce, MOTO).
+            CNP transactions receive a small positive score contribution.
+          example: true
+      required:
+        - txnId
+        - acctNo
+        - txnAmount
+
+    FraudCheckResponse:
+      type: object
+      description: Result of a real-time fraud scoring request.
+      properties:
+        txnId:
+          type: string
+          description: Echo of the request transaction ID for correlation.
+          example: "TXN0000000000001"
+        decision:
+          $ref: '#/components/schemas/AuthDecision'
+        returnCode:
+          type: string
+          description: |
+            ISO-style return code derived automatically from the decision.
+            00 = APPROVE, 10 = DECLINE, 20 = REVIEW.
+            Provided for downstream systems that consume numeric return codes
+            (mirrors the original CICS RETURN-CODE field).
+          enum:
+            - "00"
+            - "10"
+            - "20"
+          example: "00"
+        fraudScore:
+          type: number
+          format: decimal
+          description: |
+            Composite fraud score in the range [0.0000, 1.0000].
+            Computed as a weighted sum of five signals.
+          minimum: 0.0
+          maximum: 1.0
+          example: 0.1250
+        message:
+          type: string
+          description: |
+            Human-readable outcome description. Set to
+            "SLA EXCEEDED - DEFAULTING TO APPROVE" when the 180 ms SLA is breached.
+          example: "Transaction approved"
+        elapsedMs:
+          type: integer
+          format: int64
+          description: End-to-end processing time in milliseconds.
+          example: 42
+
+    AuthDecision:
+      type: string
+      description: |
+        Authorisation decision returned by the fraud scoring engine.
+
+        | Value   | Return code | Score condition         | Side effects                              |
+        |---------|-------------|-------------------------|-------------------------------------------|
+        | APPROVE | 00          | score < 0.75            | None                                      |
+        | REVIEW  | 20          | 0.75 <= score < 0.90    | FraudAlert created; JMS message enqueued  |
+        | DECLINE | 10          | score >= 0.90           | FraudAlert created; JMS message enqueued  |
+      enum:
+        - APPROVE
+        - REVIEW
+        - DECLINE
+      example: APPROVE
+
+    ErrorResponse:
+      type: object
+      description: Generic error wrapper (non-2xx responses).
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-06-05T12:00:00Z"
+        status:
+          type: integer
+          example: 500
+        error:
+          type: string
+          example: "Internal Server Error"
+        message:
+          type: string
+          example: "Unexpected error during fraud scoring"
+        path:
+          type: string
+          example: "/api/v1/authorise"

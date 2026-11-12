@@ -1,0 +1,286 @@
+# CAN — local docker-compose (replaces K8s/Azure for dev machines)
+#
+# Usage:
+#   docker compose -f docker-compose.local.yml up --build
+#
+# First build is slow (~10-15 min) — Maven downloads all deps including
+# Tika/PDFBox/POI. Subsequent builds use layer cache.
+#
+# Security is disabled via SPRING_PROFILES_ACTIVE=local. All API endpoints
+# are open without a token. To re-enable security, remove that env var and
+# add a real OAuth2/Azure AD configuration.
+#
+# Service ports on localhost:
+#   3000  frontend     (React UI: http://localhost:3000)
+#   8080  webapp-bff   (GraphQL: http://localhost:8080/graphiql)
+#   8001  user-auth
+#   8002  property-allocation
+#   8003  vdr-ingestion
+#   8004  workflow
+#   8005  search
+#   5432  postgres
+#   4222  nats (client)   8222 nats (monitor)
+#   8124  axon-server (gRPC)   8024 axon-server (UI → http://localhost:8024)
+#  10000  azurite blob
+
+x-svc-common: &svc-common
+  build:
+    context: ./03-backend-springboot
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  depends_on:
+    postgres:        { condition: service_healthy }
+    flyway-can-app:  { condition: service_completed_successfully }
+    nats:            { condition: service_healthy }
+    axonserver:      { condition: service_healthy }
+
+x-svc-env: &svc-env
+  SPRING_PROFILES_ACTIVE: local
+  SPRING_DATASOURCE_USERNAME: canadmin
+  SPRING_DATASOURCE_PASSWORD: canadmin
+  AXON_AXONSERVER_SERVERS: axonserver:8124
+  NATS_URL: nats://nats:4222
+  NATS_USER: uli-publisher
+  NATS_PASSWORD: nats-local-pass
+  # Disable Spring Security auto-configuration so Azure AD is not contacted.
+  # Services with @EnableWebSecurity (BffConfig, AppConfig) provide their own
+  # @Profile("local") permissive SecurityFilterChain instead.
+  SPRING_AUTOCONFIGURE_EXCLUDE: >-
+    org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration,
+    org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration,
+    org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+  SPRING_FLYWAY_ENABLED: "false"
+
+services:
+
+  # ── Infrastructure ────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     canadmin
+      POSTGRES_PASSWORD: canadmin
+      POSTGRES_DB:       can_app
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/00-create-databases.sh:/docker-entrypoint-initdb.d/00-create-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U canadmin -d can_app"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-c", "/etc/nats/nats-local.conf"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - ./docker/nats/nats-local.conf:/etc/nats/nats-local.conf:ro
+      - nats-data:/data/jetstream
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8222/healthz 2>&1 | grep -q ok || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  axonserver:
+    image: axoniq/axonserver:latest
+    environment:
+      AXONIQ_AXONSERVER_DEVMODE_ENABLED: "true"
+      AXONIQ_AXONSERVER_STANDALONE: "true"
+    ports:
+      - "8024:8024"
+      - "8124:8124"
+    volumes:
+      - axon-events:/eventstore
+      - axon-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8024/actuator/health 2>&1 | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azurite-data:/data
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0
+
+  # ── One-shot migration containers ─────────────────────────────────────────
+
+  flyway-can-app:
+    image: flyway/flyway:10-alpine
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      FLYWAY_URL:              jdbc:postgresql://postgres:5432/can_app
+      FLYWAY_USER:             canadmin
+      FLYWAY_PASSWORD:         canadmin
+      FLYWAY_LOCATIONS:        filesystem:/flyway/sql
+      FLYWAY_DEFAULT_SCHEMA:   public
+      FLYWAY_CONNECT_RETRIES:  10
+    volumes:
+      - ./04-database-postgres-citus/migrations/can_app:/flyway/sql:ro
+    command: migrate
+    restart: no
+
+  flyway-axon-event:
+    image: flyway/flyway:10-alpine
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      FLYWAY_URL:            jdbc:postgresql://postgres:5432/can_axon_event
+      FLYWAY_USER:           canadmin
+      FLYWAY_PASSWORD:       canadmin
+      FLYWAY_LOCATIONS:      filesystem:/flyway/sql
+      FLYWAY_CONNECT_RETRIES: 10
+    volumes:
+      - ./04-database-postgres-citus/migrations/can_axon_event:/flyway/sql:ro
+    command: migrate
+    restart: no
+
+  flyway-uli:
+    image: flyway/flyway:10-alpine
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      FLYWAY_URL:            jdbc:postgresql://postgres:5432/can_uli
+      FLYWAY_USER:           canadmin
+      FLYWAY_PASSWORD:       canadmin
+      FLYWAY_LOCATIONS:      filesystem:/flyway/sql
+      FLYWAY_CONNECT_RETRIES: 10
+    volumes:
+      - ./04-database-postgres-citus/migrations/can_uli:/flyway/sql:ro
+    command: migrate
+    restart: no
+
+  nats-setup:
+    image: natsio/nats-box:latest
+    depends_on:
+      nats: { condition: service_healthy }
+    volumes:
+      - ./docker/nats/bootstrap-streams.sh:/setup/bootstrap-streams.sh:ro
+    entrypoint: ["/bin/sh", "/setup/bootstrap-streams.sh"]
+    restart: no
+
+  # ── Application services ──────────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ./00-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - webapp-bff
+    restart: unless-stopped
+
+  webapp-bff:
+    <<: *svc-common
+    build:
+      context: ./03-backend-springboot
+      args: { MODULE: webapp-bff }
+    ports:
+      - "8080:8080"
+    environment:
+      <<: *svc-env
+      SERVICE_PROPERTY_ALLOCATION: http://property-allocation:8080
+      SERVICE_USER_AUTH: http://user-auth:8080
+      SERVICE_SEARCH: http://search:8080
+    depends_on:
+      postgres:        { condition: service_healthy }
+      flyway-can-app:  { condition: service_completed_successfully }
+      nats:            { condition: service_healthy }
+      axonserver:      { condition: service_healthy }
+
+  user-auth:
+    <<: *svc-common
+    build:
+      context: ./03-backend-springboot
+      args: { MODULE: user-auth }
+    ports:
+      - "8001:8080"
+    environment:
+      <<: *svc-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/can_app?currentSchema=user_mgmt
+    depends_on:
+      postgres:        { condition: service_healthy }
+      flyway-can-app:  { condition: service_completed_successfully }
+      nats:            { condition: service_healthy }
+      axonserver:      { condition: service_healthy }
+
+  property-allocation:
+    <<: *svc-common
+    build:
+      context: ./03-backend-springboot
+      args: { MODULE: property-allocation }
+    ports:
+      - "8002:8080"
+    environment:
+      <<: *svc-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/can_app?currentSchema=portfolio
+
+  vdr-ingestion:
+    <<: *svc-common
+    build:
+      context: ./03-backend-springboot
+      args: { MODULE: vdr-ingestion }
+    ports:
+      - "8003:8080"
+    environment:
+      <<: *svc-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/can_app?currentSchema=vdr
+      BLOB_STORAGE_ACCOUNT:  devstoreaccount1
+      BLOB_CONTAINER_RAW:    vdr-raw
+      BLOB_CONTAINER_CLEAN:  vdr-clean
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tiqIFkzgBqSMsKRrRpATHBVAk==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+    depends_on:
+      postgres:        { condition: service_healthy }
+      flyway-can-app:  { condition: service_completed_successfully }
+      nats:            { condition: service_healthy }
+      axonserver:      { condition: service_healthy }
+      azurite:         { condition: service_started }
+
+  workflow:
+    <<: *svc-common
+    build:
+      context: ./03-backend-springboot
+      args: { MODULE: workflow }
+    ports:
+      - "8004:8080"
+    environment:
+      <<: *svc-env
+    depends_on:
+      nats:        { condition: service_healthy }
+      axonserver:  { condition: service_healthy }
+
+  search:
+    <<: *svc-common
+    build:
+      context: ./03-backend-springboot
+      args: { MODULE: search }
+    ports:
+      - "8005:8080"
+    environment:
+      <<: *svc-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/can_app?currentSchema=search
+    depends_on:
+      postgres:        { condition: service_healthy }
+      flyway-can-app:  { condition: service_completed_successfully }
+      nats:            { condition: service_healthy }
+
+volumes:
+  postgres-data:
+  nats-data:
+  axon-events:
+  axon-data:
+  azurite-data:

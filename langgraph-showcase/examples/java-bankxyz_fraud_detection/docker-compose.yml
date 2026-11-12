@@ -1,0 +1,125 @@
+#version: '3.8'
+
+# Three-tier deployment:
+#   Tier 1 — oracle    : Oracle XE 21c (schema-compatible with Oracle 10g DDL)
+#   Tier 2 — activemq  : ActiveMQ 5.18 Classic (drop-in for IBM MQ queue names)
+#   Tier 3 — app       : Spring Boot fraud detection service
+#
+# First-run notes:
+#   - Oracle pulls a ~2 GB image and takes 2-3 minutes to initialise on first boot.
+#     The app container will wait thanks to the service_healthy condition.
+#   - Credential defaults are in .env — rotate before any non-local deployment.
+#   - To trigger the nightly batch job manually:
+#       curl -X POST http://localhost:8080/api/v1/batch/run
+#   - ActiveMQ web console: http://localhost:8161  (admin / admin)
+
+services:
+
+  # ── Tier 1: Oracle XE 21c ───────────────────────────────────────────────────
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    platform: linux/amd64
+    container_name: fraud-oracle
+    environment:
+      # SYS / SYSTEM password
+      ORACLE_PASSWORD: ${ORACLE_SYS_PASSWORD:-Welcome1}
+      # gvenzl auto-creates this user in XEPDB1 before running init scripts
+      APP_USER: FDADMIN
+      APP_USER_PASSWORD: ${ORACLE_FDADMIN_PASSWORD:-changeme}
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      # DDL scripts — referenced by the init shell script via absolute path
+      - ./oracle:/oracle-scripts:ro
+      # Init scripts executed by the gvenzl entrypoint once Oracle is ready
+      - ./docker/oracle/init:/container-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+    networks:
+      - fraud-net
+
+  # ── Tier 2: ActiveMQ Classic 5.18 ───────────────────────────────────────────
+  activemq:
+    image: apache/activemq-classic:5.18.3
+    container_name: fraud-activemq
+    ports:
+      - "61616:61616"   # OpenWire / JMS (app connects here)
+      - "8161:8161"     # Web console
+    volumes:
+      - activemq-data:/opt/activemq/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://admin:admin@localhost:8161/admin/ > /dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - fraud-net
+
+  # ── Tier 3: Spring Boot application ─────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fraud-app
+    environment:
+      # Override application.properties for container networking
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/XEPDB1
+      SPRING_DATASOURCE_USERNAME: FDADMIN
+      SPRING_DATASOURCE_PASSWORD: ${ORACLE_FDADMIN_PASSWORD:-changeme}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: oracle.jdbc.OracleDriver
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.Oracle10gDialect
+      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
+      SPRING_ACTIVEMQ_USER: admin
+      SPRING_ACTIVEMQ_PASSWORD: admin
+      SPRING_JPA_HIBERNATE_DDL_AUTO: none
+    ports:
+      - "8080:8080"
+    restart: on-failure
+    depends_on:
+      oracle:
+        condition: service_healthy
+      activemq:
+        condition: service_healthy
+    networks:
+      - fraud-net
+
+  # ── Test / coverage runner ───────────────────────────────────────────────────
+  # Runs the full Cucumber BDD suite + Jacoco coverage report. Self-contained
+  # (H2 + embedded ActiveMQ — see application-test.properties): does NOT
+  # depend on the oracle/activemq services above, and does not start with a
+  # plain `docker compose up`. Reports land directly on the host under
+  # target/ because the repo is bind-mounted, not baked into an image layer.
+  #
+  #   docker compose run --rm tests
+  #
+  # Then open:
+  #   target/site/jacoco/index.html        (line coverage report)
+  #   target/cucumber-report/index.html    (BDD scenario report)
+  #   target/surefire-reports/             (raw JUnit XML/TXT)
+  tests:
+    image: maven:3.9-eclipse-temurin-8
+    container_name: fraud-tests
+    working_dir: /build
+    volumes:
+      - .:/build
+      - maven-repo-cache:/root/.m2
+    command: ["mvn", "-B", "clean", "verify"]
+    profiles:
+      - test
+    networks:
+      - fraud-net
+
+volumes:
+  oracle-data:
+  activemq-data:
+  maven-repo-cache:
+
+networks:
+  fraud-net:
+    driver: bridge

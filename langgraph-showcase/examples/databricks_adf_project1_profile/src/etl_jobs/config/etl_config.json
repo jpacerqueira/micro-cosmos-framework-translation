@@ -1,0 +1,174 @@
+{
+    "raw_path": "/mnt/raw",
+    "processing_path": "/mnt/processing",
+    "serving_path": "/mnt/serving",
+    "tables": {
+        "customer_transactions": {
+            "source_path": "/mnt/raw/extracts/customer_transactions/*.csv",
+            "transformations": {
+                "TransactionDate": {
+                    "type": "timestamp",
+                    "format": "yyyy-MM-dd HH:mm:ss"
+                },
+                "OrderAmount": {
+                    "type": "cast",
+                    "target_type": "decimal(10,2)"
+                },
+                "CustomerID": {
+                    "type": "cast",
+                    "target_type": "string"
+                }
+            },
+            "aggregations": {
+                "daily_transactions": {
+                    "group_by": ["CustomerID", "TransactionDate"],
+                    "aggregations": {
+                        "TotalAmount": "sum(OrderAmount)",
+                        "TransactionCount": "count(*)",
+                        "AvgAmount": "avg(OrderAmount)"
+                    }
+                }
+            }
+        },
+        "product_inventory": {
+            "source_path": "/mnt/raw/extracts/product_inventory/*.csv",
+            "transformations": {
+                "LastUpdated": {
+                    "type": "timestamp",
+                    "format": "yyyy-MM-dd HH:mm:ss"
+                },
+                "Price": {
+                    "type": "cast",
+                    "target_type": "decimal(10,2)"
+                },
+                "Quantity": {
+                    "type": "cast",
+                    "target_type": "integer"
+                }
+            },
+            "aggregations": {
+                "inventory_summary": {
+                    "group_by": ["ProductCategory"],
+                    "aggregations": {
+                        "TotalQuantity": "sum(Quantity)",
+                        "TotalValue": "sum(Price * Quantity)",
+                        "ProductCount": "count(distinct ProductID)"
+                    }
+                }
+            }
+        },
+        "nm_item_supplier": {
+            "source_path": "/mnt/raw/product_systems_raw/nm_item_supplier/*.parquet",
+            "hive_table": "product_systems_raw.nm_item_supplier",
+            "transformations": {
+                "ConformedAt": {
+                    "type": "timestamp",
+                    "format": "yyyy-MM-dd HH:mm:ss"
+                },
+                "SupplierID": {
+                    "type": "cast",
+                    "target_type": "string"
+                },
+                "ItemNumber": {
+                    "type": "cast",
+                    "target_type": "string"
+                }
+            },
+            "aggregations": {
+                "supplier_item_count": {
+                    "group_by": ["SupplierID", "ConformedAt"],
+                    "aggregations": {
+                        "ItemCount": "count(distinct ItemNumber)",
+                        "ActiveCount": "sum(case when Status = 'ACTIVE' then 1 else 0 end)"
+                    }
+                }
+            }
+        },
+        "item_season": {
+            "source_path": "/mnt/raw/product_systems_raw/item_season/*.parquet",
+            "hive_table": "product_systems_raw.item_season",
+            "transformations": {
+                "SeasonStartDate": {
+                    "type": "timestamp",
+                    "format": "yyyy-MM-dd"
+                },
+                "SeasonEndDate": {
+                    "type": "timestamp",
+                    "format": "yyyy-MM-dd"
+                },
+                "ItemNumber": {
+                    "type": "cast",
+                    "target_type": "string"
+                }
+            },
+            "aggregations": {
+                "season_summary": {
+                    "group_by": ["SeasonCode"],
+                    "aggregations": {
+                        "ItemCount": "count(distinct ItemNumber)",
+                        "ActiveSeasons": "count(distinct SeasonCode)"
+                    }
+                }
+            }
+        },
+        "fact_sales_orders": {
+            "source_path": "/mnt/processing/trusted/fact_sales_orders/*.parquet",
+            "hive_table": "trusted.fact_sales_orders",
+            "transformations": {
+                "OrderDate": {
+                    "type": "timestamp",
+                    "format": "yyyy-MM-dd HH:mm:ss"
+                },
+                "OrderAmount": {
+                    "type": "cast",
+                    "target_type": "decimal(12,2)"
+                },
+                "ItemNumber": {
+                    "type": "cast",
+                    "target_type": "string"
+                },
+                "CustomerID": {
+                    "type": "cast",
+                    "target_type": "string"
+                }
+            },
+            "aggregations": {
+                "daily_sales": {
+                    "group_by": ["ItemNumber", "OrderDate"],
+                    "aggregations": {
+                        "TotalRevenue": "sum(OrderAmount)",
+                        "OrderCount": "count(*)",
+                        "UniqueCustomers": "count(distinct CustomerID)"
+                    }
+                }
+            }
+        },
+        "dim_item": {
+            "source_path": "/mnt/serving/trusted/dim_item/*.parquet",
+            "hive_table": "trusted.dim_item",
+            "transformations": {
+                "EffectiveDate": {
+                    "type": "timestamp",
+                    "format": "yyyy-MM-dd"
+                },
+                "ExpiryDate": {
+                    "type": "timestamp",
+                    "format": "yyyy-MM-dd"
+                },
+                "ItemNumber": {
+                    "type": "cast",
+                    "target_type": "string"
+                }
+            },
+            "aggregations": {
+                "active_items_by_category": {
+                    "group_by": ["ProductCategory", "BrandCode"],
+                    "aggregations": {
+                        "ActiveItemCount": "count(distinct ItemNumber)",
+                        "AvgRetailPrice": "avg(RetailPrice)"
+                    }
+                }
+            }
+        }
+    }
+}

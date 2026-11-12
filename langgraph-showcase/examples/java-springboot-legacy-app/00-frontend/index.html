@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAN Portfolio — Legacy App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-screen" class="screen">
+    <div class="login-card">
+      <div class="logo">
+        <h1>CAN Portfolio</h1>
+        <p class="subtitle">Property Management System</p>
+        <span class="badge">Legacy v1.0 · Java 8 · Oracle</span>
+      </div>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="alice@beyondcapital.local" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="password123" required>
+        </div>
+        <div id="login-error" class="error-msg hidden"></div>
+        <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+      </form>
+      <div class="login-hint">
+        <strong>Demo accounts:</strong><br>
+        alice@beyondcapital.local (Admin) · bob@summitbrokers.local (Broker)<br>
+        carol@apexvaluers.local (Valuer) · Password: <code>password123</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="app-screen" class="screen hidden">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <h2 class="header-title">CAN Portfolio</h2>
+      </div>
+      <div class="header-center">
+        <div class="search-bar">
+          <input type="text" id="search-input" placeholder="Search portfolios, properties...">
+          <button id="search-btn" class="btn btn-secondary">Search</button>
+        </div>
+      </div>
+      <div class="header-right">
+        <span id="user-display" class="user-info"></span>
+        <button id="logout-btn" class="btn btn-outline">Logout</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Sidebar Nav -->
+      <nav class="sidebar">
+        <ul class="nav-list">
+          <li class="nav-item active" data-view="portfolios">
+            <span class="nav-icon">📁</span> Portfolios
+          </li>
+          <li class="nav-item" data-view="search">
+            <span class="nav-icon">🔍</span> Search
+          </li>
+          <li class="nav-item" data-view="documents">
+            <span class="nav-icon">📄</span> Documents
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Content Area -->
+      <div class="content-area">
+        <!-- Portfolios View -->
+        <div id="view-portfolios" class="view active">
+          <div class="view-header">
+            <h3>Portfolios</h3>
+            <button id="create-portfolio-btn" class="btn btn-primary">+ New Portfolio</button>
+          </div>
+          <div id="portfolios-list" class="card-grid">
+            <div class="loading">Loading portfolios...</div>
+          </div>
+        </div>
+
+        <!-- Portfolio Detail View -->
+        <div id="view-portfolio-detail" class="view hidden">
+          <div class="view-header">
+            <button id="back-to-portfolios" class="btn btn-outline">← Back</button>
+            <h3 id="detail-portfolio-name">Portfolio</h3>
+            <button id="close-portfolio-btn" class="btn btn-danger">Close Portfolio</button>
+          </div>
+          <div id="portfolio-detail-info" class="detail-card"></div>
+          <div class="section-header">
+            <h4>Properties</h4>
+            <button id="add-property-btn" class="btn btn-primary btn-sm">+ Add Property</button>
+          </div>
+          <div id="properties-list" class="table-wrapper"></div>
+        </div>
+
+        <!-- Search View -->
+        <div id="view-search" class="view hidden">
+          <div class="view-header">
+            <h3>Search Results</h3>
+          </div>
+          <div id="search-results" class="search-results">
+            <p class="hint">Use the search bar above to find portfolios, properties, and documents.</p>
+          </div>
+        </div>
+
+        <!-- Documents View -->
+        <div id="view-documents" class="view hidden">
+          <div class="view-header">
+            <h3>Document Upload</h3>
+          </div>
+          <div class="upload-card">
+            <form id="upload-form">
+              <div class="form-group">
+                <label>Portfolio</label>
+                <select id="upload-portfolio-id" required>
+                  <option value="">Select portfolio...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>File</label>
+                <input type="file" id="upload-file" required>
+              </div>
+              <div id="upload-error" class="error-msg hidden"></div>
+              <div id="upload-success" class="success-msg hidden"></div>
+              <button type="submit" class="btn btn-primary">Upload Document</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Create Portfolio Modal -->
+  <div id="modal-create-portfolio" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <h3>New Portfolio</h3>
+      <form id="create-portfolio-form">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" id="new-portfolio-name" required placeholder="Portfolio name">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="new-portfolio-desc" rows="3" placeholder="Description"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Project Phase</label>
+          <select id="new-portfolio-phase">
+            <option value="INITIAL_REVIEW">Initial Review</option>
+            <option value="BROKER_ASSIGNED">Broker Assigned</option>
+            <option value="BIDDING">Bidding</option>
+            <option value="CLOSED">Closed</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" id="cancel-create-portfolio">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Property Modal -->
+  <div id="modal-add-property" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <h3>Add Property</h3>
+      <form id="add-property-form">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" id="new-property-name" required placeholder="Property name">
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <input type="text" id="new-property-address" placeholder="Street address">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" id="new-property-city" placeholder="City">
+          </div>
+          <div class="form-group">
+            <label>Postcode</label>
+            <input type="text" id="new-property-postcode" placeholder="Postcode">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="new-property-type">
+            <option value="OFFICE">Office</option>
+            <option value="RETAIL">Retail</option>
+            <option value="INDUSTRIAL">Industrial</option>
+            <option value="RESIDENTIAL">Residential</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" id="cancel-add-property">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Property</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

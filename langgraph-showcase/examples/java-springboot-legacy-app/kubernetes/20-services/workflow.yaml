@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workflow
+  namespace: can-legacy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: workflow
+  template:
+    metadata:
+      labels:
+        app: workflow
+    spec:
+      containers:
+      - name: workflow
+        image: $(ACR_NAME).azurecr.io/can-legacy/workflow:latest
+        ports:
+        - containerPort: 8004
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: prod
+        - name: SERVICE_NAME
+          value: workflow
+        - name: ENVIRONMENT
+          value: production
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            secretKeyRef:
+              name: oracle-secret
+              key: jdbc-url
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: oracle-secret
+              key: username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: oracle-secret
+              key: password
+        - name: SPRING_ACTIVEMQ_BROKER_URL
+          value: tcp://activemq:61616
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8004
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8004
+          initialDelaySeconds: 90
+          periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: workflow
+  namespace: can-legacy
+spec:
+  selector:
+    app: workflow
+  ports:
+  - port: 8004
+    targetPort: 8004

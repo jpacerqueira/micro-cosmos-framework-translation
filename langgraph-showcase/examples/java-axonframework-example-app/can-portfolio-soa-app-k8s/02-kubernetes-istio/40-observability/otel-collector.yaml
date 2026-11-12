@@ -1,0 +1,82 @@
+###############################################################################
+# Observability stack-glue - OpenTelemetry Collector that fans out to Azure
+# Monitor (App Insights) and Prometheus, plus a Kiali config for the mesh.
+###############################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: otel-collector, namespace: observability }
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc: { endpoint: 0.0.0.0:4317 }
+          http: { endpoint: 0.0.0.0:4318 }
+    processors:
+      batch:
+        timeout: 5s
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+      resource:
+        attributes:
+          - { key: deployment.environment, value: ${ENV}, action: upsert }
+    exporters:
+      azuremonitor:
+        connection_string: ${APPINSIGHTS_CONNECTION_STRING}
+      prometheus:
+        endpoint: 0.0.0.0:9464
+      logging:
+        loglevel: info
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [azuremonitor, logging]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [azuremonitor, prometheus]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [azuremonitor]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: opentelemetry-collector, namespace: observability }
+spec:
+  selector: { app: otel-collector }
+  ports:
+    - { name: otlp-grpc, port: 4317 }
+    - { name: otlp-http, port: 4318 }
+    - { name: prom,      port: 9464 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: otel-collector, namespace: observability }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: otel-collector } }
+  template:
+    metadata: { labels: { app: otel-collector } }
+    spec:
+      containers:
+        - name: collector
+          image: otel/opentelemetry-collector-contrib:0.100.0
+          args: ["--config=/conf/config.yaml"]
+          ports:
+            - { containerPort: 4317 }
+            - { containerPort: 4318 }
+            - { containerPort: 9464 }
+          envFrom:
+            - { secretRef: { name: appinsights } }
+          env:
+            - { name: ENV, valueFrom: { fieldRef: { fieldPath: metadata.namespace } } }
+          volumeMounts: [{ name: config, mountPath: /conf }]
+          resources: { requests: { cpu: 200m, memory: 512Mi }, limits: { cpu: 1, memory: 1Gi } }
+      volumes:
+        - name: config
+          configMap: { name: otel-collector }

@@ -1,0 +1,19 @@
+spring:
+  application: { name: uli-eventhub-bridge }
+
+nats:
+  url: ${NATS_URL:nats://nats.can-system.svc.cluster.local:4222}
+
+eventhub:
+  namespace-fqdn: ${EVENTHUB_NAMESPACE_FQDN}
+  name:           ${EVENTHUB_NAME:uli.events}
+
+bridge:
+  poll-millis: 500
+
+server:
+  port: 8081
+
+management:
+  endpoints.web.exposure.include: health,info,prometheus,metrics
+  endpoint.health.probes.enabled: true

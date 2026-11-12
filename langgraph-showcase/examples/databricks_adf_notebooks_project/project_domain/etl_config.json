@@ -1,0 +1,101 @@
+{
+  "tables": [
+    {
+      "name": "customer_360",
+      "layer": "bronze",
+      "source_path": "/mnt/raw/crm/customer_360",
+      "transformations": ["dedup", "type_cast"],
+      "aggregations": []
+    },
+    {
+      "name": "order_header",
+      "layer": "bronze",
+      "source_path": "/mnt/raw/sql_server/orders",
+      "transformations": ["dedup"],
+      "aggregations": []
+    },
+    {
+      "name": "order_line",
+      "layer": "bronze",
+      "source_path": "/mnt/raw/sql_server/order_lines",
+      "transformations": ["dedup"],
+      "aggregations": []
+    },
+    {
+      "name": "product_master",
+      "layer": "bronze",
+      "source_path": "/mnt/raw/sql_server/products",
+      "transformations": ["type_cast"],
+      "aggregations": []
+    },
+    {
+      "name": "brand_master",
+      "layer": "silver",
+      "source_path": "/mnt/processing/brands",
+      "transformations": ["dedupe", "scd2"],
+      "aggregations": []
+    },
+    {
+      "name": "warehouse_event_log",
+      "layer": "silver",
+      "source_path": "/mnt/processing/warehouse",
+      "transformations": ["json_flatten"],
+      "aggregations": []
+    },
+    {
+      "name": "warehouse_staging_orders",
+      "layer": "silver",
+      "source_path": "/mnt/processing/wh_staging",
+      "transformations": ["insert_pattern"],
+      "aggregations": []
+    },
+    {
+      "name": "bis_sales_summary",
+      "layer": "gold",
+      "source_path": null,
+      "transformations": [],
+      "aggregations": [
+        {"type": "sum", "col": "revenue"},
+        {"type": "count", "col": "order_id"}
+      ]
+    },
+    {
+      "name": "bis_brand_performance",
+      "layer": "gold",
+      "source_path": null,
+      "transformations": [],
+      "aggregations": [
+        {"type": "sum", "col": "margin"},
+        {"type": "avg", "col": "sell_through_rate"}
+      ]
+    },
+    {
+      "name": "bis_inventory_cover",
+      "layer": "gold",
+      "source_path": null,
+      "transformations": [],
+      "aggregations": [
+        {"type": "min", "col": "weeks_cover"},
+        {"type": "max", "col": "stock_units"}
+      ]
+    },
+    {
+      "name": "branded_attribution",
+      "layer": "gold",
+      "source_path": null,
+      "transformations": [],
+      "aggregations": [
+        {"type": "sum", "col": "attributed_revenue"}
+      ]
+    },
+    {
+      "name": "warehouse_report_summary",
+      "layer": "gold",
+      "source_path": null,
+      "transformations": [],
+      "aggregations": [
+        {"type": "sum", "col": "fulfilled_units"}
+      ]
+    }
+  ]
+}

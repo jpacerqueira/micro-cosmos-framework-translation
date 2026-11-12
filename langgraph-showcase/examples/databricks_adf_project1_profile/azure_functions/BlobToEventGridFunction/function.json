@@ -1,0 +1,12 @@
+{
+    "bindings": [
+        {
+            "name": "blobStream",
+            "type": "blobTrigger",
+            "direction": "in",
+            "path": "input-container/{name}",
+            "connection": "BlobStorageConnection"
+        }
+    ],
+    "disabled": false
+} 

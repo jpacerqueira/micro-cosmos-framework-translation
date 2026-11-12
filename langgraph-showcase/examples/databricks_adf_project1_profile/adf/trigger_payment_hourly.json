@@ -1,0 +1,27 @@
+{
+    "name": "PaymentHourlyTrigger",
+    "properties": {
+        "type": "ScheduleTrigger",
+        "typeProperties": {
+            "recurrence": {
+                "frequency": "Hour",
+                "interval": 1,
+                "timeZone": "UTC",
+                "schedule": {
+                    "minutes": [15]
+                }
+            }
+        },
+        "pipelines": [
+            {
+                "pipelineReference": {
+                    "referenceName": "PaymentDiagnosticPipeline",
+                    "type": "PipelineReference"
+                },
+                "parameters": {
+                    "provider": "all"
+                }
+            }
+        ]
+    }
+}

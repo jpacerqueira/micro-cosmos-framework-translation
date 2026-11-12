@@ -1,0 +1,43 @@
+###############################################################################
+# Local dev compose - runs the platform dependencies so Spring Boot apps can
+# be started directly from the IDE. Does NOT run the apps themselves.
+###############################################################################
+services:
+
+  postgres:
+    image: citusdata/citus:12.1
+    environment:
+      POSTGRES_USER: canadmin
+      POSTGRES_PASSWORD: canadmin
+      POSTGRES_DB: can_app
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../04-database-postgres-citus/migrations:/docker-entrypoint-initdb.d:ro
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  axonserver:
+    image: axoniq/axonserver:2024.1
+    environment:
+      AXONIQ_AXONSERVER_DEVMODE_ENABLED: "true"
+    ports:
+      - "8024:8024"
+      - "8124:8124"
+    volumes:
+      - axondata:/axonserver/data
+      - axonevents:/axonserver/events
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports: ["10000:10000", "10001:10001", "10002:10002"]
+
+volumes:
+  pgdata: {}
+  axondata: {}
+  axonevents: {}

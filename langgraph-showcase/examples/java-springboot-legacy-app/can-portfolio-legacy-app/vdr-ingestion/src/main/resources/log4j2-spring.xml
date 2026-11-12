@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+  <Appenders>
+    <Console name="Console" target="SYSTEM_OUT">
+      <JsonLayout complete="false" compact="true" eventEol="true" includeTimeMillis="true">
+        <KeyValuePair key="service" value="${env:SERVICE_NAME:-vdr-ingestion}"/>
+        <KeyValuePair key="environment" value="${env:ENVIRONMENT:-local}"/>
+      </JsonLayout>
+    </Console>
+  </Appenders>
+  <Loggers>
+    <Root level="INFO">
+      <AppenderRef ref="Console"/>
+    </Root>
+    <Logger name="com.customer.can" level="DEBUG" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+  </Loggers>
+</Configuration>

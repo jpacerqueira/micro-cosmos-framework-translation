@@ -1,0 +1,21 @@
+{
+  "name": "trigger_bis_daily",
+  "properties": {
+    "type": "ScheduleTrigger",
+    "description": "BIS master ETL — runs daily at 02:00 UTC",
+    "typeProperties": {
+      "recurrence": {
+        "frequency": "Day",
+        "interval": 1,
+        "schedule": {
+          "hours": [2],
+          "minutes": [0]
+        },
+        "timeZone": "UTC"
+      }
+    },
+    "pipelines": [
+      {"pipelineReference": {"type": "PipelineReference", "referenceName": "BISMasterETL"}}
+    ]
+  }
+}

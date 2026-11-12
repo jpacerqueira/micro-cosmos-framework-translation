@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ current_label }} · {{ run_id }}{% endblock %}
+{% block body_class %}report-browser-page{% endblock %}
+{% block body %}
+<div class="report-browser">
+  <nav class="report-browser-nav" aria-label="Reports, skills, and translated code">
+    <a class="report-browser-back" href="/runs/{{ run_id }}">Run {{ run_id }}</a>
+    {% for group in groups %}
+    <p class="report-browser-group">{{ group.name }}</p>
+    <ul>
+      {% for item in group.reports %}
+      <li>
+        <a href="/runs/{{ run_id }}/browse/{{ item.filename }}"
+           {% if view == 'report' and item.filename == filename %}aria-current="page"{% endif %}>{{ item.label }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endfor %}
+    {% for pack in packs %}
+    <p class="report-browser-group">{{ pack.name }}</p>
+    <ul class="report-browser-code">
+      {% for item in pack.files %}
+      <li>
+        <a href="{{ item.href }}"
+           {% if view == 'pack' and pack.kind == pack_kind and item.path == code_path %}aria-current="page"{% endif %}
+           title="{{ item.path }}">{{ item.path }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endfor %}
+    {% if code_files %}
+    <p class="report-browser-group">Translated code</p>
+    <ul class="report-browser-code">
+      {% for item in code_files %}
+      <li>
+        <a href="{{ item.href }}"
+           {% if view == 'code' and item.path == code_path %}aria-current="page"{% endif %}
+           title="{{ item.path }}">{{ item.path }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </nav>
+  <iframe class="report-browser-frame" title="{{ current_label }}" src="{{ frame_src }}"></iframe>
+</div>
+{% endblock %}
